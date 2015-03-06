@@ -16,7 +16,7 @@ import ConfigParser
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from vnc_api import vnc_api
-from neutron_plugin_db import DBInterface
+from neutron_plugin_db2 import DBInterfaceV2 as DBInterface
 
 
 @bottle.error(400)
