@@ -93,24 +93,36 @@ class IndexAllocator(object):
         return -1
     # end _get_bit_from_zk_index
 
-    def _set_in_use(self, idx):
+    def _set_in_use(self, bitnum):
         # if the index is higher than _max_alloc, do not use the bitarray, in
         # order to reduce the size of the bitarray. Otherwise, set the bit
         # corresponding to idx to 1 and extend the _in_use bitarray if needed
-        if idx > self._max_alloc:
+        if bitnum > self._max_alloc:
             return
-        if idx >= self._in_use.length():
-            temp = bitarray(idx - self._in_use.length())
+        if bitnum >= self._in_use.length():
+            temp = bitarray(bitnum - self._in_use.length())
             temp.setall(0)
             temp.append('1')
             self._in_use.extend(temp)
         else:
-            self._in_use[idx] = 1
+            self._in_use[bitnum] = 1
     # end _set_in_use
 
     def get_alloc_count(self):
         return self._in_use.count()
     # end get_alloc_count
+
+    def _reset_in_use(self, bitnum):
+        # if the index is higher than _max_alloc, do not use the bitarray, in
+        # order to reduce the size of the bitarray. Otherwise, set the bit
+        # corresponding to idx to 1 and extend the _in_use bitarray if needed
+        if bitnum > self._max_alloc:
+            return
+        if bitnum >= self._in_use.length():
+            return
+        else:
+            self._in_use[bitnum] = 0
+    # end _reset_in_use
 
     def set_in_use(self, idx):
         bit_idx = self._get_bit_from_zk_index(idx)
@@ -118,6 +130,13 @@ class IndexAllocator(object):
             return
         self._set_in_use(bit_idx)
     # end set_in_use
+
+    def reset_in_use(self, idx):
+        bit_idx = self._get_bit_from_zk_index(idx)
+        if bit_idx < 0:
+            return
+        self._reset_in_use(bit_idx)
+    # end reset_in_use
 
     def alloc(self, value=None):
         # Allocates a index from the allocation list
@@ -141,18 +160,25 @@ class IndexAllocator(object):
     # end alloc
 
     def reserve(self, idx, value=None):
-        # Reserves the requested index if available
-        if not self._start_idx <= idx < self._start_idx + self._size:
-            return None
-
+        bit_idx = self._get_bit_from_zk_index(idx)
+        if bit_idx < 0:
+            return None  
         try:
             # Create a node at path and return its integer value
             id_str = "%(#)010d" % {'#': idx}
             self._zookeeper_client.create_node(self._path + id_str, value)
-            self.set_in_use(idx)
+            self._set_in_use(bit_idx)
             return idx
         except ResourceExistsError:
-            self.set_in_use(idx)
+            self._set_in_use(bit_idx)
+            existing_value = self.read(idx)
+            if (value == existing_value or
+                existing_value is None): # upgrade case
+                # idempotent reserve
+                return idx
+            msg = 'For index %s reserve conflicts with existing value %s.' \
+                  %(idx, existing_value)
+            self._zookeeper_client.syslog(msg, level='notice')
             return None
     # end reserve
 
@@ -261,7 +287,9 @@ class ZookeeperClient(object):
     def syslog(self, msg, *args, **kwargs):
         if not self._logger:
             return
-        self._logger.info(msg)
+        level = kwargs.get('level', 'info')
+        log_method = getattr(self._logger, level, self._logger.info)
+        log_method(msg)
     # end syslog
 
     def set_lost_cb(self, lost_cb=None):

@@ -43,26 +43,24 @@ logger.setLevel(logging.DEBUG)
 class TestIpAlloc(test_case.ApiServerTestCase):
 
     def test_ip_alloction(self):
-        logger.debug('test ip allocation')
-
         # Create Domain
         domain = Domain('my-v4-v6-domain')
         self._vnc_lib.domain_create(domain)
-        logger.debug('Created domain ')
+        print 'Created domain '
 
         # Create Project
         project = Project('my-v4-v6-proj', domain)
         self._vnc_lib.project_create(project)
-        logger.debug('Created Project')
+        print 'Created Project'
 
         # Create NetworkIpam
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
-        logger.debug('Created network ipam')
+        print 'Created network ipam'
 
         ipam = self._vnc_lib.network_ipam_read(fq_name=['my-v4-v6-domain', 'my-v4-v6-proj',
                                                         'default-network-ipam'])
-        logger.debug('Read network ipam')
+        print 'Read network ipam'
 
         # Create subnets
         ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
@@ -72,18 +70,18 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         vn = VirtualNetwork('my-v4-v6-vn', project)
         vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4, ipam_sn_v6]))
         self._vnc_lib.virtual_network_create(vn)
-        logger.debug('Created Virtual Network object %s', vn.uuid)
+        print 'Created Virtual Network object', vn.uuid
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
         # Create v4 Ip object
         ip_obj1 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
         ip_obj1.uuid = ip_obj1.name
-        logger.debug('Created Instance IP object 1 %s', ip_obj1.uuid)
+        print 'Created Instance IP object 1 ', ip_obj1.uuid
 
         # Create v6 Ip object
         ip_obj2 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v6')
         ip_obj2.uuid = ip_obj2.name
-        logger.debug('Created Instance IP object 2 %s', ip_obj2.uuid)
+        print 'Created Instance IP object 2', ip_obj2.uuid
 
         # Create VM
         vm_inst_obj1 = VirtualMachine(str(uuid.uuid4()))
@@ -101,35 +99,35 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ip_obj2.set_virtual_network(net_obj)
         port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
 
-        logger.debug('Allocating an IP4 address for first VM')
+        print 'Allocating an IP4 address for first VM'
         ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
         ip_obj1 = self._vnc_lib.instance_ip_read(id=ip_id1)
         ip_addr1 = ip_obj1.get_instance_ip_address()
-        logger.debug('  got v4 IP Address for first instance %s', ip_addr1)
+        print '  got v4 IP Address for first instance', ip_addr1
         if ip_addr1 != '11.1.1.253':
-            logger.debug('Allocation failed, expected v4 IP Address 11.1.1.253')
+            print 'Allocation failed, expected v4 IP Address 11.1.1.253'
 
-        logger.debug('Allocating an IP6 address for first VM')
+        print 'Allocating an IP6 address for first VM'
         ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
         ip_obj2 = self._vnc_lib.instance_ip_read(id=ip_id2)
         ip_addr2 = ip_obj2.get_instance_ip_address()
-        logger.debug('  got v6 IP Address for first instance %s', ip_addr2)
+        print '  got v6 IP Address for first instance', ip_addr2
         if ip_addr2 != 'fd14::fd':
-            logger.debug('Allocation failed, expected v6 IP Address fd14::fd')
+            print 'Allocation failed, expected v6 IP Address fd14::fd'
 
         # Read gateway ip address 
-        logger.debug('Read default gateway ip address' )
+        print 'Read default gateway ip address' 
         ipam_refs = net_obj.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
             subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
-                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(),
+                print 'Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(), 
                         subnet.subnet.get_ip_prefix_len(),
-                        subnet.get_default_gateway()))
+                        subnet.get_default_gateway())
 
 
         #cleanup
-        logger.debug('Cleaning up')
+        print 'Cleaning up'
         self._vnc_lib.instance_ip_delete(id=ip_id1)
         self._vnc_lib.instance_ip_delete(id=ip_id2)
         self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)
@@ -141,26 +139,24 @@ class TestIpAlloc(test_case.ApiServerTestCase):
     #end
 
     def test_ip_alloction_pools(self):
-        logger.debug('test ip allocation')
-
         # Create Domain
         domain = Domain('my-v4-v6-domain')
         self._vnc_lib.domain_create(domain)
-        logger.debug('Created domain ')
+        print 'Created domain '
 
         # Create Project
         project = Project('my-v4-v6-proj', domain)
         self._vnc_lib.project_create(project)
-        logger.debug('Created Project')
+        print 'Created Project'
 
         # Create NetworkIpam
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
-        logger.debug('Created network ipam')
+        print 'Created network ipam'
 
         ipam = self._vnc_lib.network_ipam_read(fq_name=['my-v4-v6-domain', 'my-v4-v6-proj',
                                                         'default-network-ipam'])
-        logger.debug('Read network ipam')
+        print 'Read network ipam'
 
         # Create subnets
         alloc_pool_list = []
@@ -178,18 +174,18 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         vn = VirtualNetwork('my-v4-v6-vn', project)
         vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4, ipam_sn_v6]))
         self._vnc_lib.virtual_network_create(vn)
-        logger.debug('Created Virtual Network object %s', vn.uuid)
+        print 'Created Virtual Network object', vn.uuid
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
         # Create v4 Ip object
         ip_obj1 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
         ip_obj1.uuid = ip_obj1.name
-        logger.debug('Created Instance IP object 1 %s', ip_obj1.uuid)
+        print 'Created Instance IP object 1 ', ip_obj1.uuid
 
         # Create v6 Ip object
         ip_obj2 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v6')
         ip_obj2.uuid = ip_obj2.name
-        logger.debug('Created Instance IP object 2 %s', ip_obj2.uuid)
+        print 'Created Instance IP object 2', ip_obj2.uuid
 
         # Create VM
         vm_inst_obj1 = VirtualMachine(str(uuid.uuid4()))
@@ -207,35 +203,35 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ip_obj2.set_virtual_network(net_obj)
         port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
 
-        logger.debug('Allocating an IP4 address for first VM')
+        print 'Allocating an IP4 address for first VM'
         ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
         ip_obj1 = self._vnc_lib.instance_ip_read(id=ip_id1)
         ip_addr1 = ip_obj1.get_instance_ip_address()
-        logger.debug('got v4 IP Address for first instance %s', ip_addr1)
+        print 'got v4 IP Address for first instance', ip_addr1
         if ip_addr1 != '11.1.1.20':
-            logger.debug('Allocation failed, expected v4 IP Address 11.1.1.20')
-
-        logger.debug('Allocating an IP6 address for first VM')
+            print 'Allocation failed, expected v4 IP Address 11.1.1.20'
+        
+        print 'Allocating an IP6 address for first VM'
         ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
         ip_obj2 = self._vnc_lib.instance_ip_read(id=ip_id2)
         ip_addr2 = ip_obj2.get_instance_ip_address()
-        logger.debug('got v6 IP Address for first instance %s', ip_addr2)
+        print 'got v6 IP Address for first instance', ip_addr2
         if ip_addr2 != 'fd14::30':
-            logger.debug('Allocation failed, expected v6 IP Address fd14::30')
+            print 'Allocation failed, expected v6 IP Address fd14::30'
 
         # Read gateway ip address 
-        logger.debug('Read default gateway ip address' )
+        print 'Read default gateway ip address' 
         ipam_refs = net_obj.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
             subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
-                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(),
+                print 'Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(), 
                         subnet.subnet.get_ip_prefix_len(),
-                        subnet.get_default_gateway()))
+                        subnet.get_default_gateway())
 
 
         #cleanup
-        logger.debug('Cleaning up')
+        print 'Cleaning up'
         #cleanup subnet and allocation pools 
         self._vnc_lib.instance_ip_delete(id=ip_id1)
         self._vnc_lib.instance_ip_delete(id=ip_id2)
@@ -248,26 +244,24 @@ class TestIpAlloc(test_case.ApiServerTestCase):
     #end
 
     def test_subnet_gateway_ip_alloc(self):
-        logger.debug('test ip allocation')
-
         # Create Domain
         domain = Domain('my-v4-v6-domain')
         self._vnc_lib.domain_create(domain)
-        logger.debug('Created domain ')
+        print 'Created domain '
 
         # Create Project
         project = Project('my-v4-v6-proj', domain)
         self._vnc_lib.project_create(project)
-        logger.debug('Created Project')
+        print 'Created Project'
 
         # Create NetworkIpam
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
-        logger.debug('Created network ipam')
+        print 'Created network ipam'
 
         ipam = self._vnc_lib.network_ipam_read(fq_name=['my-v4-v6-domain', 'my-v4-v6-proj',
                                                         'default-network-ipam'])
-        logger.debug('Read network ipam')
+        print 'Read network ipam'
 
         # Create subnets
         alloc_pool_list = []
@@ -285,28 +279,99 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         vn = VirtualNetwork('my-v4-v6-vn', project)
         vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4, ipam_sn_v6]))
         self._vnc_lib.virtual_network_create(vn)
-        logger.debug('Created Virtual Network object %s', vn.uuid)
+        print 'Created Virtual Network object', vn.uuid
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
         # Read gateway ip address 
-        logger.debug('Read default gateway ip address')
+        print 'Read default gateway ip address' 
         ipam_refs = net_obj.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
             subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
-                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(),
+                print 'Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(), 
                         subnet.subnet.get_ip_prefix_len(),
-                        subnet.get_default_gateway()))
+                        subnet.get_default_gateway())
                 if subnet.subnet.get_ip_prefix() == '11.1.1.0':
                     if subnet.get_default_gateway() != '11.1.1.1':
-                        logger.debug(' Failure, expected gateway ip address 11.1.1.1')
+                        print ' Failure, expected gateway ip address 11.1.1.1'
                 if subnet.subnet.get_ip_prefix() == 'fd14::':
                     if subnet.get_default_gateway() != 'fd14::1':
-                        logger.debug(' Failure, expected gateway ip address fd14::1')
+                        print ' Failure, expected gateway ip address fd14::1'
 
 
         #cleanup
-        logger.debug('Cleaning up')
+        print 'Cleaning up'
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        self._vnc_lib.network_ipam_delete(id=ipam.uuid)
+        self._vnc_lib.project_delete(id=project.uuid)
+        self._vnc_lib.domain_delete(id=domain.uuid)
+    #end
+
+    def test_bulk_ip_alloc_free(self):
+        # Create Domain
+        domain = Domain('v4-domain')
+        self._vnc_lib.domain_create(domain)
+        print 'Created domain '
+
+        # Create Project
+        project = Project('v4-proj', domain)
+        self._vnc_lib.project_create(project)
+        print 'Created Project'
+
+        # Create NetworkIpam
+        ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
+        self._vnc_lib.network_ipam_create(ipam)
+        print 'Created network ipam'
+        ipam = self._vnc_lib.network_ipam_read(fq_name=['v4-domain', 'v4-proj',
+                                                        'default-network-ipam'])
+        print 'Read network ipam'
+
+        # Create subnets
+        ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
+
+        # Create VN
+        vn = VirtualNetwork('v4-vn', project)
+        vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4]))
+        self._vnc_lib.virtual_network_create(vn)
+        print 'Created Virtual Network object', vn.uuid
+        net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        # request to allocate 10 ip address using bulk allocation api
+        data = {"subnet" : "11.1.1.0/24", "count" : 10}
+        url = '/virtual-network/%s/ip-alloc' %(vn.uuid)
+        rv_json = self._vnc_lib._request_server(rest.OP_POST, url, json.dumps(data))
+        ret_data = json.loads(rv_json)
+        ret_ip_addr = ret_data['ip_addr']
+        expected_ip_addr = ['11.1.1.252', '11.1.1.251', '11.1.1.250',
+                            '11.1.1.249', '11.1.1.248', '11.1.1.247',
+                            '11.1.1.246', '11.1.1.245', '11.1.1.244',
+                            '11.1.1.243']
+
+        self.assertEqual(len(expected_ip_addr), len(ret_ip_addr))
+        for idx in range(len(expected_ip_addr)):
+            self.assertEqual(expected_ip_addr[idx], ret_ip_addr[idx])
+        
+        print 'Verified bulk ip address allocation'
+
+        #free allocated ip addresses from vn
+        data = {"subnet" : "11.1.1.0/24",
+                "ip_addr" : ['11.1.1.252', '11.1.1.251', '11.1.1.250',
+                             '11.1.1.249', '11.1.1.248', '11.1.1.247',
+                             '11.1.1.246', '11.1.1.245', '11.1.1.244',
+                             '11.1.1.243']}
+        url = '/virtual-network/%s/ip-free' %(vn.uuid)
+        self._vnc_lib._request_server(rest.OP_POST, url, json.dumps(data))
+
+        # Find out number of allocated ips from given VN/subnet
+        # We should not get any ip allocated from this subnet
+        data = {"subnet_list" : ["11.1.1.0/24"]}
+        url = '/virtual-network/%s/subnet-ip-count' %(vn.uuid)
+        rv_json = self._vnc_lib._request_server(rest.OP_POST, url, json.dumps(data))
+        ret_ip_count = json.loads(rv_json)['ip_count_list'][0]
+        self.assertEqual(ret_ip_count, 0)
+        print 'Verified bulk ip free'
+
+        # cleanup
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
         self._vnc_lib.network_ipam_delete(id=ipam.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
@@ -314,26 +379,24 @@ class TestIpAlloc(test_case.ApiServerTestCase):
     #end
 
     def test_v4_ip_allocation_exhaust(self):
-        logger.debug('test ip allocation to cover all ip addresses')
-
         # Create Domain
         domain = Domain('v4-domain')
         self._vnc_lib.domain_create(domain)
-        logger.debug('Created domain ')
+        print 'Created domain '
 
         # Create Project
         project = Project('v4-proj', domain)
         self._vnc_lib.project_create(project)
-        logger.debug('Created Project')
+        print 'Created Project'
 
         # Create NetworkIpam
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
-        logger.debug('Created network ipam')
+        print 'Created network ipam'
 
         ipam = self._vnc_lib.network_ipam_read(fq_name=['v4-domain', 'v4-proj',
                                                         'default-network-ipam'])
-        logger.debug('Read network ipam')
+        print 'Read network ipam'
 
         ip_alloc_from_start = [True, False]
         for from_start in ip_alloc_from_start:
@@ -368,12 +431,12 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                 ip_addr_list.reverse()
 
             total_addr = len(ip_addr_list)
-            logger.debug('ip address alloc list:%s ', ip_addr_list[0:total_addr])
+            print 'ip address alloc list:', ip_addr_list[0:total_addr]
             # Create VN
             vn = VirtualNetwork('v4-vn', project)
             vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4]))
             self._vnc_lib.virtual_network_create(vn)
-            logger.debug('Created Virtual Network object %s', vn.uuid)
+            print 'Created Virtual Network object', vn.uuid
             net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
             # Create v4 Ip object for all possible addresses in alloc_pool
@@ -383,7 +446,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                 v4_ip_obj_list.append(
                     InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4'))
                 v4_ip_obj_list[idx].uuid = v4_ip_obj_list[idx].name
-                logger.debug('Created Instance IP object %s, %s' ,idx, v4_ip_obj_list[idx].uuid)
+                print 'Created Instance IP object',idx, v4_ip_obj_list[idx].uuid
 
             # Create number of VMs to assign ip addresses
             # to use all addresses in alloc_pool
@@ -408,16 +471,25 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                     self._vnc_lib.virtual_machine_interface_create(port_list[idx]))
 
             ip_ids = []
-            logger.debug('Allocating an IP4 address for VMs')
+            print 'Allocating an IP4 address for VMs'
             for idx, val in enumerate(ip_addr_list):
                 ip_ids.append(
                     self._vnc_lib.instance_ip_create(v4_ip_obj_list[idx]))
                 v4_ip_obj_list[idx] = self._vnc_lib.instance_ip_read(
                                           id=ip_ids[idx])
                 ip_addr = v4_ip_obj_list[idx].get_instance_ip_address()
-                logger.debug('got v4 IP Address for instance %s:%s' ,idx, ip_addr)
+                print 'got v4 IP Address for instance',idx,':', ip_addr
                 if ip_addr != ip_addr_list[idx]:
-                    logger.debug('Allocation failed, expected v4 IP Address: %s', ip_addr_list[idx])
+                    print 'Allocation failed, expected v4 IP Address:', ip_addr_list[idx]
+
+            # Find out number of allocated ips from given VN/subnet to test
+            # vn_subnet_ip_count_http_post()
+            data = {"subnet_list" : ["11.1.1.0/24"]}
+            url = '/virtual-network/%s/subnet-ip-count' %(vn.uuid)
+            rv_json = self._vnc_lib._request_server(rest.OP_POST, url, json.dumps(data))
+            ret_ip_count = json.loads(rv_json)['ip_count_list'][0]
+            total_ip_addr = len(ip_addr_list)
+            self.assertEqual(ret_ip_count, total_ip_addr)
 
             # Delete 2 VMs (With First and Last IP), associated Ports
             # and instanace IPs,
@@ -427,7 +499,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             to_modifies = [[0, total_ip_addr-1],
                            [total_ip_addr/2 -1, total_ip_addr/2]]
             for to_modify in to_modifies:
-                logger.debug('Delete Instances %s, %s', to_modify[0], to_modify[1])
+                print 'Delete Instances', to_modify[0], to_modify[1]
                 for idx, val in enumerate(to_modify):
                     self._vnc_lib.instance_ip_delete(id=ip_ids[val])
                     ip_ids[val] = None
@@ -440,7 +512,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                     vm_list_v4[val] = None
                     v4_ip_obj_list[val] = None
                     ip_ids[val] = None
-                    logger.debug('Deleted instance %s', val)
+                    print 'Deleted instance',val
 
                 # Re-create two VMs and assign IP addresses
                 # these should get first and last ip.
@@ -461,7 +533,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                         port_list[val])
                     v4_ip_obj_list[val].set_virtual_network(net_obj)
                     port_id_list[val] = self._vnc_lib.virtual_machine_interface_create(port_list[val])
-                    logger.debug('Created instance %s', val)
+                    print 'Created instance',val
 
                 # Allocate IPs to modified VMs
                 for idx, val in enumerate(to_modify):
@@ -469,19 +541,19 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                     v4_ip_obj_list[val] = self._vnc_lib.instance_ip_read(
                         id=ip_ids[val])
                     ip_addr = v4_ip_obj_list[val].get_instance_ip_address()
-                    logger.debug('got v4 IP Address for instance %s:%s', val, ip_addr)
+                    print 'got v4 IP Address for instance',val,':', ip_addr
                     if ip_addr != ip_addr_list[val]:
-                        logger.debug('Allocation failed, expected v4 IP Address: %s', ip_addr_list[val])
+                        print 'Allocation failed, expected v4 IP Address:', ip_addr_list[val]
 
             # negative test.
             # Create a new VM and try getting a new instance_ip
             # we should get an exception as alloc_pool is fully exhausted.
 
-            logger.debug('Negative Test to create extra instance and try assigning IP address')
+            print 'Negative Test to create extra instance and try assigning IP address'
             # Create v4 Ip object
             ip_obj1 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
             ip_obj1.uuid = ip_obj1.name
-            logger.debug('Created new Instance IP object %s', ip_obj1.uuid)
+            print 'Created new Instance IP object', ip_obj1.uuid
 
             # Create VM
             vm_inst_obj1 = VirtualMachine(str(uuid.uuid4()))
@@ -496,13 +568,13 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             ip_obj1.set_virtual_machine_interface(port_obj1)
             ip_obj1.set_virtual_network(net_obj)
             port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
-            logger.debug('Created extra instance')
+            print 'Created extra instance'
 
-            logger.debug('Allocating an IP4 address for extra instance')
+            print 'Allocating an IP4 address for extra instance'
             try:
                 ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
             except HttpError:
-                logger.debug('alloc pool is exhausted')
+                print 'alloc pool is exhausted'
                 pass
 
             # cleanup for negative test
@@ -519,7 +591,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                                      instance_ip_address='11.1.1.1',
                                      instance_ip_family='v4')
                 ip_obj2.uuid = ip_obj2.name
-                logger.debug('Created new Instance IP object %s', ip_obj2.uuid)
+                print 'Created new Instance IP object', ip_obj2.uuid
 
                 # Create VM
                 vm_inst_obj2 = VirtualMachine(str(uuid.uuid4()))
@@ -552,34 +624,32 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             self._vnc_lib.virtual_network_delete(id=vn.uuid)
 
         # end of from_start
-        logger.debug('Cleaning up')
+        print 'Cleaning up'
         self._vnc_lib.network_ipam_delete(id=ipam.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
         self._vnc_lib.domain_delete(id=domain.uuid)
     #end
 
     def test_req_ip_allocation(self):
-        logger.debug('test requested ip allocation')
-
         # Create Domain
         domain = Domain('my-v4-v6-req-ip-domain')
         self._vnc_lib.domain_create(domain)
-        logger.debug('Created domain ')
+        print 'Created domain '
 
         # Create Project
         project = Project('my-v4-v6-req-ip-proj', domain)
         self._vnc_lib.project_create(project)
-        logger.debug('Created Project')
+        print 'Created Project'
 
         # Create NetworkIpam
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
-        logger.debug('Created network ipam')
+        print 'Created network ipam'
 
         ipam = self._vnc_lib.network_ipam_read(fq_name=['my-v4-v6-req-ip-domain',
                                                         'my-v4-v6-req-ip-proj',
                                                         'default-network-ipam'])
-        logger.debug('Read network ipam')
+        print 'Read network ipam'
 
         # Create subnets
         ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
@@ -589,20 +659,20 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         vn = VirtualNetwork('my-v4-v6-vn', project)
         vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4, ipam_sn_v6]))
         self._vnc_lib.virtual_network_create(vn)
-        logger.debug('Created Virtual Network object %s', vn.uuid)
+        print 'Created Virtual Network object', vn.uuid
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
         # Create v4 Ip object, with v4 requested ip
         ip_obj1 = InstanceIp(name=str(uuid.uuid4()), instance_ip_address='11.1.1.4',
                              instance_ip_family='v4')
         ip_obj1.uuid = ip_obj1.name
-        logger.debug('Created Instance IP object 1 %s', ip_obj1.uuid)
+        print 'Created Instance IP object 1 ', ip_obj1.uuid
 
         # Create v6 Ip object with v6 requested ip
         ip_obj2 = InstanceIp(name=str(uuid.uuid4()), instance_ip_address='fd14::4',
                              instance_ip_family='v6')
         ip_obj2.uuid = ip_obj2.name
-        logger.debug('Created Instance IP object 2 %s', ip_obj2.uuid)
+        print 'Created Instance IP object 2', ip_obj2.uuid
 
         # Create VM
         vm_inst_obj1 = VirtualMachine(str(uuid.uuid4()))
@@ -620,35 +690,35 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ip_obj2.set_virtual_network(net_obj)
         port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
 
-        logger.debug('Allocating an IP4 address for first VM')
+        print 'Allocating an IP4 address for first VM'
         ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
         ip_obj1 = self._vnc_lib.instance_ip_read(id=ip_id1)
         ip_addr1 = ip_obj1.get_instance_ip_address()
-        logger.debug('  got v4 IP Address for first instance %s', ip_addr1)
+        print '  got v4 IP Address for first instance', ip_addr1
         if ip_addr1 != '11.1.1.4':
-            logger.debug('Allocation failed, expected v4 IP Address 11.1.1.4')
+            print 'Allocation failed, expected v4 IP Address 11.1.1.4'
 
-        logger.debug('Allocating an IP6 address for first VM')
+        print 'Allocating an IP6 address for first VM'
         ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
         ip_obj2 = self._vnc_lib.instance_ip_read(id=ip_id2)
         ip_addr2 = ip_obj2.get_instance_ip_address()
-        logger.debug('  got v6 IP Address for first instance %s', ip_addr2)
+        print '  got v6 IP Address for first instance', ip_addr2
         if ip_addr2 != 'fd14::4':
-            logger.debug('Allocation failed, expected v6 IP Address fd14::4')
+            print 'Allocation failed, expected v6 IP Address fd14::4'
 
         # Read gateway ip address
-        logger.debug('Read default gateway ip address')
+        print 'Read default gateway ip address'
         ipam_refs = net_obj.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
             subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
-                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(),
+                print 'Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(),
                         subnet.subnet.get_ip_prefix_len(),
-                        subnet.get_default_gateway()))
+                        subnet.get_default_gateway())
 
 
         #cleanup
-        logger.debug('Cleaning up')
+        print 'Cleaning up'
         self._vnc_lib.instance_ip_delete(id=ip_id1)
         self._vnc_lib.instance_ip_delete(id=ip_id2)
         self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)
@@ -659,6 +729,44 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.domain_delete(id=domain.uuid)
     #end
 
+    def test_notify_doesnt_persist(self):
+        # net/ip notify context shouldn't persist to db, should only
+        # update in-memory book-keeping
+        def_ipam = NetworkIpam()
+        ipam_obj = self._vnc_lib.network_ipam_read(
+                      fq_name=def_ipam.get_fq_name())
+        vn_obj = VirtualNetwork('vn-%s' %(self.id()))
+        ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
+        vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([ipam_sn_v4]))
+        self._vnc_lib.virtual_network_create(vn_obj)
+
+        iip_obj = InstanceIp('iip-%s' %(self.id()))
+        iip_obj.add_virtual_network(vn_obj)
+
+        class SpyCreateNode(object):
+            def __init__(self, orig_object, method_name):
+                self._orig_method = getattr(orig_object, method_name)
+                self._invoked = 0
+            # end __init__
+
+            def __call__(self, orig_method, *args, **kwargs):
+                if self._invoked >= 1:
+                    raise Exception(
+                        "Instance IP was persisted more than once")
+
+                if args[0].startswith('/api-server/subnets'):
+                    self._invoked += 1
+                return self._orig_method(args, kwargs)
+        # end SpyCreateNode
+
+        orig_object = self._api_server._db_conn._zk_db._zk_client
+        method_name = 'create_node'
+        with test_common.patch(orig_object, method_name,
+                               SpyCreateNode(orig_object, method_name)):
+            self._vnc_lib.instance_ip_create(iip_obj)
+            self.assertTill(self.ifmap_has_ident, obj=iip_obj)
+
+    #end test_notify_doesnt_persist
  
 #end class TestIpAlloc
 
