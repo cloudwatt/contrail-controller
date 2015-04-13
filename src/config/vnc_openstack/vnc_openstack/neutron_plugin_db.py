@@ -2397,8 +2397,8 @@ class DBInterface(object):
             count = lambda pid: method(parent_id=pid,
                                        count=True)[json_resource]['count']
 
-        ret = [count(pid) for pid in project_ids] if project_ids \
-            else [count(None)]
+        ret = ([count(pid) for pid in project_ids] if project_ids
+                else [count(None)])
         return sum(ret)
 
     # end _resource_count_optimized
