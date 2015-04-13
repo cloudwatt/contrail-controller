@@ -16,7 +16,8 @@ import ConfigParser
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from vnc_api import vnc_api
-from neutron_plugin_db import DBInterface
+import neutron_plugin_db_handler
+# from neutron_plugin_db_handler import DBInterface
 
 
 @bottle.error(400)
@@ -86,7 +87,7 @@ class NeutronPluginInterface(object):
             # Initialize connection to DB and add default entries
             exts_enabled = self._contrail_extensions_enabled
             apply_sn_route = self._sn_host_route
-            self._cfgdb = DBInterface(self._auth_user,
+            self._cfgdb = neutron_plugin_db_handler.DBInterfaceV2(self._auth_user,
                                       self._auth_passwd,
                                       self._auth_tenant,
                                       self._vnc_api_ip,
@@ -107,7 +108,7 @@ class NeutronPluginInterface(object):
         user_id = context['user_id']
         role = string.join(context['roles'], ",")
         if not user_id in self._cfgdb_map:
-            self._cfgdb_map[user_id] = DBInterface(
+            self._cfgdb_map[user_id] = neutron_plugin_db_handler.DBInterfaceV2(
                 self._auth_user, self._auth_passwd, self._auth_tenant,
                 self._vnc_api_ip, self._vnc_api_port,
                 user_info={'user_id': user_id, 'role': role},
