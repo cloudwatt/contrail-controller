@@ -117,7 +117,8 @@ class ResourceGetHandler(ContrailResourceHandler):
         if not isinstance(project_ids, list):
             project_ids = [project_ids]
 
-        json_resource = self.resource_list_method("_", "-")
+        json_resource = self.resource_list_method.replace("_", "-")
+        json_resource = json_resource.replace('-list', '')
         if self.resource_list_method == "floating_ips_list":
             count = lambda pid: self._resource_list(
                 back_ref_id=pid, count=True,
