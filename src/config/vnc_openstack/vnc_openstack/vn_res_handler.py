@@ -24,7 +24,7 @@ from vnc_api import vnc_api
 
 import contrail_res_handler as res_handler
 import neutron_plugin_db_handler as db_handler
-import subnet_res_handler as subnet_hanler
+import subnet_res_handler as subnet_handler
 
 
 class VNetworkHandler(res_handler.ResourceGetHandler,
@@ -201,8 +201,7 @@ class VNetworkCreateHandler(VNetworkHandler, VNetworkMixin):
 
         if vn_obj.router_external:
             fip_pool_obj = vnc_api.FloatingIpPool('floating-ip-pool', vn_obj)
-            res_handler.FloatingIpPoolHandler(self._vnc_lib)._resource_create(
-                fip_pool_obj)
+            self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
             
         ret_network_q = self.vn_to_neutron_dict(
             vn_obj, contrail_extensions_enabled=contrail_extensions_enabled)

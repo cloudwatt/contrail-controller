@@ -127,7 +127,11 @@ class DBInterfaceV2(DBInterface):
 
     def port_read(self, port_id):
         vmi_list_handler = vmi_handler.VMInterfaceGetHandler(self._vnc_lib)
-        return vmi_list_handler.resource_list(port_id=port_id)
+        return vmi_list_handler.resource_get(port_id=port_id)
+
+    def port_list(self, context=None, filters=None):
+        vmi_list_handler = vmi_handler.VMInterfaceGetHandler(self._vnc_lib)
+        return vmi_list_handler.resource_list(context=context, filters=filters)
 
     def port_count(self, filters=None):
         return super(DBInterfaceV2, self).port_count(filters=filters)

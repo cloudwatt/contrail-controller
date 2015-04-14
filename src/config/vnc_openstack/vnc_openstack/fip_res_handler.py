@@ -29,8 +29,10 @@ import vmi_res_handler as vmi_handler
 
 
 
-class FloatingIpHandler(ResourceGetHandler, ResourceCreateHandler,
-                        ResourceDeleteHandler, ResourceUpdateHandler):
+class FloatingIpHandler(res_handler.ResourceGetHandler,
+                        res_handler.ResourceCreateHandler,
+                        res_handler.ResourceDeleteHandler,
+                        res_handler.ResourceUpdateHandler):
     resource_create_method = 'floating_ip_create'
     resource_list_method = 'floating_ips_list'
     resource_get_method = 'floating_ip_read'
@@ -146,6 +148,7 @@ class FloatingIpCreateHandler(FloatingIpHandler, FloatingIpMixin):
         proj_id = str(uuid.UUID(fip_q['tenant_id']))
         proj_obj = self._project_read(proj_id=proj_id)
         fip_obj.set_project(proj_obj)
+        return fip_obj
 
     def resource_create(self, **kwargs):
         context = kwargs.get('context')
@@ -154,7 +157,7 @@ class FloatingIpCreateHandler(FloatingIpHandler, FloatingIpMixin):
         try:
             fip_obj = self._neutron_dict_to_fip_obj(fip_q, context['is_admin'],
                                                     context['tenant'])
-        except Exception, e:
+        except Exception as  e:
             #logging.exception(e)
             msg = _('Internal error when trying to create floating ip. '
                     'Please be sure the network %s is an external '
@@ -171,7 +174,7 @@ class FloatingIpCreateHandler(FloatingIpHandler, FloatingIpMixin):
         return self._fip_obj_to_neutron_dict(fip_obj)
 
 
-class FloatingIpDeleteHandler(ResourceDeleteHandler):
+class FloatingIpDeleteHandler(res_handler.ResourceDeleteHandler):
 
     def resource_delete(self, **kwargs):
         fip_id = kwargs.get('fip_id')

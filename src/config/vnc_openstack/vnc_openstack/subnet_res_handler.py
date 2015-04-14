@@ -122,7 +122,7 @@ class ContrailSubnetHandler(res_handler.ResourceGetHandler,
             return self._subnet_vnc_read_mapping(key=key)
 
     def get_subnet_id_cidr(self, subnet_obj, vn_obj=None):
-        sn_id = subnet_vnc.subnet_uuid
+        sn_id = subnet_obj.subnet_uuid
         if not sn_id and vn_obj:
             subnet_key = self._subnet_vnc_get_key(
                             subnet_vnc, vn_obj.uuid)

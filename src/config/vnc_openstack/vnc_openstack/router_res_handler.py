@@ -30,8 +30,10 @@ import subnet_res_handler as subnet_handler
 SNAT_SERVICE_TEMPLATE_FQ_NAME = ['default-domain', 'netns-snat-template']
 
 
-class LogicalRouterHandler(ResourceGetHandler, ResourceCreateHandler,
-                    ResourceDeleteHandler, ResourceUpdateHandler):
+class LogicalRouterHandler(res_handler.ResourceGetHandler,
+                           res_handler.ResourceCreateHandler,
+                           res_handler.ResourceDeleteHandler,
+                           res_handler.ResourceUpdateHandler):
     resource_create_method = 'logical_router_create'
     resource_list_method = 'logical_routers_list'
     resource_get_method = 'logical_router_read'
