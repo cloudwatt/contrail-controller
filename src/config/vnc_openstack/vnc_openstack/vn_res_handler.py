@@ -168,6 +168,74 @@ class VNetworkMixin(object):
     def get_vn_tenant_id(self, vn_obj):
         return vn_obj.parent_uuid.replace('-', '')
 
+    def _network_vnc_to_neutron(self, net_obj, net_repr='SHOW',
+                                contrail_extensions_enabled=False):
+        net_q_dict = {}
+        extra_dict = {}
+
+        id_perms = net_obj.get_id_perms()
+        perms = id_perms.permissions
+        net_q_dict['id'] = net_obj.uuid
+
+        if not net_obj.display_name:
+            # for nets created directly via vnc_api
+            net_q_dict['name'] = net_obj.get_fq_name()[-1]
+        else:
+            net_q_dict['name'] = net_obj.display_name
+
+        extra_dict['contrail:fq_name'] = net_obj.get_fq_name()
+        net_q_dict['tenant_id'] = net_obj.parent_uuid.replace('-', '')
+        net_q_dict['admin_state_up'] = id_perms.enable
+        if net_obj.is_shared:
+            net_q_dict['shared'] = True
+        else:
+            net_q_dict['shared'] = False
+        net_q_dict['status'] = (n_constants.NET_STATUS_ACTIVE if id_perms.enable
+                                else n_constants.NET_STATUS_DOWN)
+        if net_obj.router_external:
+            net_q_dict['router:external'] = True
+        else:
+            net_q_dict['router:external'] = False
+
+        if net_repr == 'SHOW' or net_repr == 'LIST':
+            extra_dict['contrail:instance_count'] = 0
+
+            net_policy_refs = net_obj.get_network_policy_refs()
+            if net_policy_refs:
+                sorted_refs = sorted(
+                    net_policy_refs,
+                    key=lambda t:(t['attr'].sequence.major,
+                                  t['attr'].sequence.minor))
+                extra_dict['contrail:policys'] = \
+                    [np_ref['to'] for np_ref in sorted_refs]
+
+        rt_refs = net_obj.get_route_table_refs()
+        if rt_refs:
+            extra_dict['contrail:route_table'] = \
+                [rt_ref['to'] for rt_ref in rt_refs]
+
+        ipam_refs = net_obj.get_network_ipam_refs()
+        net_q_dict['subnets'] = []
+        if ipam_refs:
+            extra_dict['contrail:subnet_ipam'] = []
+            sn_handler = subnet_handler.ContrailSubnetHandler(self._vnc_lib)
+            for ipam_ref in ipam_refs:
+                subnets = ipam_ref['attr'].get_ipam_subnets()
+                for subnet in subnets:
+                    sn_dict = sn_handler._subnet_vnc_to_neutron(subnet, net_obj,
+                                                                ipam_ref['to'])
+                    net_q_dict['subnets'].append(sn_dict['id'])
+                    sn_ipam = {}
+                    sn_ipam['subnet_cidr'] = sn_dict['cidr']
+                    sn_ipam['ipam_fq_name'] = ipam_ref['to']
+                    extra_dict['contrail:subnet_ipam'].append(sn_ipam)
+
+        if contrail_extensions_enabled:
+            net_q_dict.update(extra_dict)
+
+        return net_q_dict
+    #end _network_vnc_to_neutron
+
 
 class VNetworkCreateHandler(VNetworkHandler, VNetworkMixin):
     
@@ -271,11 +339,168 @@ class VNetworkUpdateHandler(VNetworkHandler, VNetworkMixin):
 
 
 class VNetworkGetHandler(VNetworkHandler, VNetworkMixin):
+    def _network_list_project(self, project_id, count=False):
+        if project_id:
+            try:
+                project_uuid = str(uuid.UUID(project_id))
+            except Exception:
+                print "Error in converting uuid %s" % (project_id)
+        else:
+            project_uuid = None
+
+        if count:
+            ret_val = self._resource_list(parent_id=project_uuid,
+                                                 count=True)
+        else:
+            ret_val = self._resource_list(parent_id=project_uuid,
+                                                 detail=True)
+
+        return ret_val
+    #end _network_list_project
+
+    def _network_list_shared_and_ext(self):
+        ret_list = []
+        nets = self._network_list_project(project_id=None)
+        for net in nets:
+            if net.get_router_external() and net.get_is_shared():
+                ret_list.append(net)
+        return ret_list
+    # end _network_list_router_external
+
+    def _network_list_router_external(self):
+        ret_list = []
+        nets = self._network_list_project(project_id=None)
+        for net in nets:
+            if not net.get_router_external():
+                continue
+            ret_list.append(net)
+        return ret_list
+    # end _network_list_router_external
+
+    def _network_list_shared(self):
+        ret_list = []
+        nets = self._network_list_project(project_id=None)
+        for net in nets:
+            if not net.get_is_shared():
+                continue
+            ret_list.append(net)
+        return ret_list
+    # end _network_list_shared
+
 
     def resource_list(self, **kwargs):
         context = kwargs.get('context')
         filters= kwargs.get('filters')
-        
+        contrail_extensions_enabled = kwargs.get(
+            'contrail_extensions_enabled', False)
+        ret_dict = {}
+
+        def _collect_without_prune(net_ids):
+            for net_id in net_ids:
+                try:
+                    net_obj = self._network_read(net_id)
+                    net_info = self._network_vnc_to_neutron(net_obj,
+                          net_repr='LIST',
+                          contrail_extensions_enabled=contrail_extensions_enabled)
+                    ret_dict[net_id] = net_info
+                except NoIdError:
+                    pass
+        #end _collect_without_prune
+
+        # collect phase
+        all_net_objs = []  # all n/ws in all projects
+        if context and not context['is_admin']:
+            if filters and 'id' in filters:
+                _collect_without_prune(filters['id'])
+            elif filters and 'name' in filters:
+                net_objs = self._network_list_project(context['tenant'])
+                all_net_objs.extend(net_objs)
+                all_net_objs.extend(self._network_list_shared())
+                all_net_objs.extend(self._network_list_router_external())
+            elif (filters and 'shared' in filters and filters['shared'][0] and
+                  'router:external' not in filters):
+                all_net_objs.extend(self._network_list_shared())
+            elif (filters and 'router:external' in filters and
+                  'shared' not in filters):
+                all_net_objs.extend(self._network_list_router_external())
+            elif (filters and 'router:external' in filters and
+                  'shared' in filters):
+                all_net_objs.extend(self._network_list_shared_and_ext())
+            else:
+                project_uuid = str(uuid.UUID(context['tenant']))
+                if not filters:
+                    all_net_objs.extend(self._network_list_router_external())
+                    all_net_objs.extend(self._network_list_shared())
+                all_net_objs.extend(self._network_list_project(project_uuid))
+        # admin role from here on
+        elif filters and 'tenant_id' in filters:
+            # project-id is present
+            if 'id' in filters:
+                # required networks are also specified,
+                # just read and populate ret_dict
+                # prune is skipped because all_net_objs is empty
+                _collect_without_prune(filters['id'])
+            else:
+                # read all networks in project, and prune below
+                proj_ids = db_handler.DBInterfaceV2._validate_project_ids(context, filters['tenant_id'])
+                for p_id in proj_ids:
+                    all_net_objs.extend(self._network_list_project(p_id))
+                if 'router:external' in filters:
+                    all_net_objs.extend(self._network_list_router_external())
+        elif filters and 'id' in filters:
+            # required networks are specified, just read and populate ret_dict
+            # prune is skipped because all_net_objs is empty
+            _collect_without_prune(filters['id'])
+        elif filters and 'name' in filters:
+            net_objs = self._network_list_project(None)
+            all_net_objs.extend(net_objs)
+        elif filters and 'shared' in filters:
+            if filters['shared'][0] == True:
+                nets = self._network_list_shared()
+                for net in nets:
+                    net_info = self._network_vnc_to_neutron(net,
+                                                            net_repr='LIST')
+                    ret_dict[net.uuid] = net_info
+        elif filters and 'router:external' in filters:
+            nets = self._network_list_router_external()
+            if filters['router:external'][0] == True:
+                for net in nets:
+                    net_info = self._network_vnc_to_neutron(net, net_repr='LIST')
+                    ret_dict[net.uuid] = net_info
+        else:
+            # read all networks in all projects
+            all_net_objs.extend(self._resource_list(detail=True))
+
+        # prune phase
+        for net_obj in all_net_objs:
+            if net_obj.uuid in ret_dict:
+                continue
+            net_fq_name = unicode(net_obj.get_fq_name())
+            if not db_handler.DBInterfaceV2._filters_is_present(filters, 'contrail:fq_name',
+                                            net_fq_name):
+                continue
+            if not db_handler.DBInterfaceV2._filters_is_present(
+                filters, 'name', net_obj.get_display_name() or net_obj.name):
+                continue
+            if net_obj.is_shared is None:
+                is_shared = False
+            else:
+                is_shared = net_obj.is_shared
+            if not db_handler.DBInterfaceV2._filters_is_present(filters, 'shared',
+                                            is_shared):
+                continue
+            try:
+                net_info = self._network_vnc_to_neutron(net_obj,
+                                                        net_repr='LIST')
+            except vnc_exc.NoIdError:
+                continue
+            ret_dict[net_obj.uuid] = net_info
+        ret_list = []
+        for net in ret_dict.values():
+            ret_list.append(net)
+
+        return ret_list
+      
 
     def resource_get(self, **kwargs):
         net_uuid = kwargs.get('net_uuid')

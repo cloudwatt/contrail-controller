@@ -28,18 +28,6 @@ import vn_res_handler as vn_handler
 import vmi_res_handler as vmi_handler
 
 
-
-class FloatingIpHandler(res_handler.ResourceGetHandler,
-                        res_handler.ResourceCreateHandler,
-                        res_handler.ResourceDeleteHandler,
-                        res_handler.ResourceUpdateHandler):
-    resource_create_method = 'floating_ip_create'
-    resource_list_method = 'floating_ips_list'
-    resource_get_method = 'floating_ip_read'
-    resource_delete_method = 'floating_ip_delete'
-    resource_update_method = 'floating_ip_update'
-
-
 class FloatingIpMixin(object):
 
     def _create_or_get_fip_obj(self, fip_q):
@@ -124,7 +112,8 @@ class FloatingIpMixin(object):
         return fip_q_dict
 
 
-class FloatingIpCreateHandler(FloatingIpHandler, FloatingIpMixin):
+class FloatingIpCreateHandler(res_handler.ResourceCreateHandler, FloatingIpMixin):
+    resource_create_method = 'floating_ip_create'
 
     def _create_or_get_fip_obj(self, fip_q):
         # TODO for now create from default pool, later
@@ -153,7 +142,7 @@ class FloatingIpCreateHandler(FloatingIpHandler, FloatingIpMixin):
     def resource_create(self, **kwargs):
         context = kwargs.get('context')
         fip_q = kwargs.get('fip_q')
-        
+
         try:
             fip_obj = self._neutron_dict_to_fip_obj(fip_q, context['is_admin'],
                                                     context['tenant'])
@@ -182,7 +171,8 @@ class FloatingIpDeleteHandler(res_handler.ResourceDeleteHandler):
         self._resource_delete(id=fip_id)
 
 
-class FloatingIpUpdateHandler(FloatingIpHandler, FloatingIpMixin):
+class FloatingIpUpdateHandler(res_handler.ResourceUpdateHandler, FloatingIpMixin):
+    resource_update_method = 'floating_ip_update'
 
     def resource_update(self, **kwargs):
         fip_id = kwargs.get('fip_id')
@@ -195,7 +185,9 @@ class FloatingIpUpdateHandler(FloatingIpHandler, FloatingIpMixin):
         return self._fip_obj_to_neutron_dict(fip_obj)
 
 
-class FloatingIpGetHandler(FloatingIpHandler, FloatingIpMixin):
+class FloatingIpGetHandler(res_handler.ResourceGetHandler, FloatingIpMixin):
+    resource_list_method = 'floating_ips_list'
+    resource_get_method = 'floating_ip_read'
 
     def resource_get(self, **kwargs):
         try:
@@ -253,3 +245,11 @@ class FloatingIpGetHandler(FloatingIpHandler, FloatingIpMixin):
 
         floatingip_info = self.resource_list(**kwargs)
         return len(floatingip_info)
+
+
+class FloatingIpHandler(FloatingIpGetHandler,
+                        FloatingIpCreateHandler,
+                        FloatingIpDeleteHandler,
+                        FloatingIpUpdateHandler):
+
+    pass
