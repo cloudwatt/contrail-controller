@@ -214,10 +214,8 @@ class DBInterfaceV2(DBInterface):
 
     def router_list(self, context=None, filters=None):
         rtr_get_handler = rtr_handler.LogicalRouterGetHandler(self._vnc_lib)
-        return rtr_get_handler.resource_get(context=context, filters=filters)
+        return rtr_get_handler.resource_list(context=context, filters=filters)
 
     def router_count(self, filters=None):
         rtr_get_handler = rtr_handler.LogicalRouterGetHandler(self._vnc_lib)
-        return rtr_get_handler.resource_get(filters=filters)
-
-
+        return rtr_get_handler.resource_count(filters=filters)

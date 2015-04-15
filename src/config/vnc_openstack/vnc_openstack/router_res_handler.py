@@ -380,13 +380,14 @@ class LogicalRouterGetHandler(LogicalRouterHandler, LogicalRouterMixin):
         """TODO"""
         return []
 
-    def get_vmi_obj_router_id(self, vmi_obj):
+    def get_vmi_obj_router_id(self, vmi_obj, project_id=None):
         vmi_get_handler = vmi_handler.VMInterfaceGetHandler(
                 self._vnc_lib)
 
         port_net_id = vmi_obj.get_virtual_network_refs()[0]['uuid']
         # find router_id from port
-        router_list = self._router_list_project(tenant_id, detail=True)
+        router_list = self._router_list_project(project_id=project_id,
+                                                detail=True)
         for router_obj in router_list or []:
             for vmi in (router_obj.get_virtual_machine_interface_refs()
                         or []):
@@ -455,7 +456,7 @@ class LogicalRouterGetHandler(LogicalRouterHandler, LogicalRouterMixin):
                                                 proj_rtr_fq_name):
                     continue
                 try:
-                    rtr_obj = self._logical_router_read(proj_rtr['uuid'])
+                    rtr_obj = self._resource_get(id=proj_rtr['uuid'])
                     if not self._filters_is_present(
                         filters, 'name',
                         rtr_obj.get_display_name() or rtr_obj.name):
