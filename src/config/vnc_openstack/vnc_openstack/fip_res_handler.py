@@ -60,14 +60,14 @@ class FloatingIpMixin(object):
                     self._raise_contrail_exception('PortNotFound',
                                                    resource='floatingip',
                                                    port_id=port_id)
-            fip_obj.set_virtual_machine_interface(port_obj)
+            fip_obj.set_virtual_machine_interface(vmi_obj)
         else:
             fip_obj.set_virtual_machine_interface_list([])
 
         if fip_q.get('fixed_ip_address'):
             fip_obj.set_floating_ip_fixed_ip_address(fip_q['fixed_ip_address'])
         else:
-            # fixed_ip_address not specified, pick from port_obj in create,
+            # fixed_ip_address not specified, pick from vmi_obj in create,
             # reset in case of disassociate
             vmi_refs = fip_obj.get_virtual_machine_interface_refs()
             if not vmi_refs:
@@ -175,6 +175,7 @@ class FloatingIpCreateHandler(FloatingIpHandler, FloatingIpMixin):
 
 
 class FloatingIpDeleteHandler(res_handler.ResourceDeleteHandler):
+    resource_delete_method = 'floating_ip_delete'
 
     def resource_delete(self, **kwargs):
         fip_id = kwargs.get('fip_id')
@@ -186,6 +187,7 @@ class FloatingIpUpdateHandler(FloatingIpHandler, FloatingIpMixin):
     def resource_update(self, **kwargs):
         fip_id = kwargs.get('fip_id')
         fip_q = kwargs.get('fip_q')
+        fip_q['id'] = fip_id
         context = kwargs.get('context')
         fip_obj = self._neutron_dict_to_fip_obj(fip_q, context['is_admin'],
                                                 context['tenant'])

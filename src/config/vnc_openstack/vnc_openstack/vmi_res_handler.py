@@ -839,7 +839,8 @@ class VMInterfaceGetHandler(VMIHandler, VMInterfaceMixin):
             db_handler.DBInterfaceV2._raise_contrail_exception('PortNotFound',
                                                                port_id=port_id)
 
+        extensions_enabled=kwargs.get('contrail_extensions_enabled', True)
         ret_port_q = self._vmi_to_neutron_port(
-            vmi_obj, kwargs.get('contrail_extensions_enabled', False))
+            vmi_obj, extensions_enabled=extensions_enabled)
 
         return ret_port_q
