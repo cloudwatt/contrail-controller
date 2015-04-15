@@ -30,17 +30,6 @@ import subnet_res_handler as subnet_handler
 SNAT_SERVICE_TEMPLATE_FQ_NAME = ['default-domain', 'netns-snat-template']
 
 
-class LogicalRouterHandler(res_handler.ResourceGetHandler,
-                           res_handler.ResourceCreateHandler,
-                           res_handler.ResourceDeleteHandler,
-                           res_handler.ResourceUpdateHandler):
-    resource_create_method = 'logical_router_create'
-    resource_list_method = 'logical_routers_list'
-    resource_get_method = 'logical_router_read'
-    resource_delete_method = 'logical_router_delete'
-    resource_update_method = 'logical_router_update'
-
-
 class LogicalRouterMixin(object):
 
     @staticmethod
@@ -286,7 +275,8 @@ class LogicalRouterMixin(object):
         self._vnc_lib.virtual_network_update(vn_obj)
 
 
-class LogicalRouterCreateHandler(LogicalRouterHandler, LogicalRouterMixin):
+class LogicalRouterCreateHandler(res_handler.ResourceCreateHandler, LogicalRouterMixin):
+    resource_create_method = 'logical_router_create'
 
     def _create_or_get_rtr_obj(self, router_q):
         project_id = str(uuid.UUID(router_q['tenant_id']))
@@ -308,7 +298,8 @@ class LogicalRouterCreateHandler(LogicalRouterHandler, LogicalRouterMixin):
             rtr_obj, kwargs.get('contrail_extensions_enabled', True))
 
 
-class LogicalRouterDeleteHandler(LogicalRouterHandler, LogicalRouterMixin):
+class LogicalRouterDeleteHandler(res_handler.ResourceDeleteHandler, LogicalRouterMixin):
+    resource_delete_method = 'logical_router_delete'
 
     def resource_delete(self, **kwargs):
         rtr_id = kwargs.get('rtr_id')
@@ -328,7 +319,8 @@ class LogicalRouterDeleteHandler(LogicalRouterHandler, LogicalRouterMixin):
             self._raise_contrail_exception('RouterInUse', router_id=rtr_id)
 
 
-class LogicalRouterUpdateHandler(LogicalRouterHandler, LogicalRouterMixin):
+class LogicalRouterUpdateHandler(res_handler.ResourceUpdateHandler, LogicalRouterMixin):
+    resource_update_method = 'logical_router_update'
 
     def resource_update(self, **kwargs):
         router_q = kwargs.get('router_q')
@@ -340,7 +332,9 @@ class LogicalRouterUpdateHandler(LogicalRouterHandler, LogicalRouterMixin):
         return self._rtr_obj_to_neutron_dict(rtr_obj)
 
 
-class LogicalRouterGetHandler(LogicalRouterHandler, LogicalRouterMixin):
+class LogicalRouterGetHandler(res_handler.ResourceGetHandler, LogicalRouterMixin):
+    resource_get_method = 'logical_router_read'
+    resource_list_method = 'logical_routers_list'
 
     def _router_list_project(self, project_id=None, detail=False):
         if project_id:
@@ -478,3 +472,10 @@ class LogicalRouterGetHandler(LogicalRouterHandler, LogicalRouterMixin):
 
         rtrs_info = self.router_list(filters=filters)
         return len(rtrs_info)
+
+
+class LogicalRouterHandler(LogicalRouterGetHandler,
+                           LogicalRouterCreateHandler,
+                           LogicalRouterDeleteHandler,
+                           LogicalRouterUpdateHandler):
+    pass

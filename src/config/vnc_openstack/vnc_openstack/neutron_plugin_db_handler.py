@@ -97,12 +97,10 @@ class DBInterfaceV2(DBInterface):
         return vn_get_handler.resource_get(net_uuid=net_uuid, fields=fields)
 
     def network_list(self, context=None, filters=None):
-        """
         vn_get_handler = vn_handler.VNetworkGetHandler(self._vnc_lib)
-        return vn_get_handler.resource_list(context=context, filters=filters)
-        """
-        return super(DBInterfaceV2, self).network_list(context=context,
-                                                       filters=filters)
+        return vn_get_handler.resource_list(
+            context=context, filters=filters,
+            contrail_extensions_enabled=self._contrail_extensions_enabled)
 
     def network_count(self, filters=None):
         return super(DBInterfaceV2, self).network_count(filters=filters)
@@ -164,58 +162,58 @@ class DBInterfaceV2(DBInterface):
                                              filters=filters)
 
     def floatingip_create(self, context, fip_q):
-        fip_create_handler = fip_handler.FloatingIpCreateHandler(self._vnc_lib)
-        return fip_create_handler.resource_create(context=context,
-                                                  fip_q=fip_q)
+        handler = fip_handler.FloatingIpHandler(self._vnc_lib)
+        return handler.resource_create(context=context,
+                                       fip_q=fip_q)
 
     def floatingip_delete(self, fip_id):
-        fip_delete_handler = fip_handler.FloatingIpDeleteHandler(self._vnc_lib)
-        fip_delete_handler.resource_delete(fip_id=fip_id)
+        handler = fip_handler.FloatingIpHandler(self._vnc_lib)
+        handler.resource_delete(fip_id=fip_id)
 
     def floatingip_update(self, context, fip_id, fip_q):
-        fip_update_handler = fip_handler.FloatingIpUpdateHandler(self._vnc_lib)
-        return fip_update_handler.resource_update(context=context,
-                                                  fip_id=fip_id,
-                                                  fip_q=fip_q)
+        handler = fip_handler.FloatingIpHandler(self._vnc_lib)
+        return handler.resource_update(context=context,
+                                       fip_id=fip_id,
+                                       fip_q=fip_q)
 
     def floatingip_read(self, fip_uuid):
-        fip_get_handler = fip_handler.FloatingIpGetHandler(self._vnc_lib)
-        return fip_get_handler.resource_get(fip_uuid=fip_uuid)
+        handler = fip_handler.FloatingIpHandler(self._vnc_lib)
+        return handler.resource_get(fip_uuid=fip_uuid)
 
     def floatingip_list(self, context, filters=None):
-        fip_get_handler = fip_handler.FloatingIpGetHandler(self._vnc_lib)
-        return fip_get_handler.resource_list(context=context,
-                                             filters=filters)
+        handler = fip_handler.FloatingIpHandler(self._vnc_lib)
+        return handler.resource_list(context=context,
+                                     filters=filters)
 
     def floatingip_count(self, context, filters=None):
-        fip_get_handler = fip_handler.FloatingIpGetHandler(self._vnc_lib)
-        return fip_get_handler.resource_count(context=context,
-                                              filters=filters)
+        handler = fip_handler.FloatingIpHandler(self._vnc_lib)
+        return handler.resource_count(context=context,
+                                      filters=filters)
 
     def router_create(self, router_q):
-        rtr_create_handler = rtr_handler.LogicalRouterCreateHandler(
+        handler = rtr_handler.LogicalRouterHandler(
             self._vnc_lib)
-        return rtr_create_handler.resource_create(router_q=router_q)
+        return handler.resource_create(router_q=router_q)
 
     def router_delete(self, rtr_id):
-        rtr_delete_handler = rtr_handler.LogicalRouterDeleteHandler(
+        handler = rtr_handler.LogicalRouterHandler(
             self._vnc_lib)
-        return rtr_delete_handler.resource_delete(rtr_id=rtr_id)
+        return handler.resource_delete(rtr_id=rtr_id)
 
     def router_update(self, rtr_id, router_q):
-        rtr_update_handler = rtr_handler.LogicalRouterUpdateHandler(
+        handler = rtr_handler.LogicalRouterHandler(
             self._vnc_lib)
-        return rtr_update_handler.resource_update(rtr_id=rtr_id,
-                                                  router_q=router_q)
+        return handler.resource_update(rtr_id=rtr_id,
+                                       router_q=router_q)
 
     def router_read(self, rtr_uuid, fields=None):
-        rtr_get_handler = rtr_handler.LogicalRouterGetHandler(self._vnc_lib)
-        return rtr_get_handler.resource_get(rtr_uuid=rtr_uuid, fields=fields)
+        handler = rtr_handler.LogicalRouterHandler(self._vnc_lib)
+        return handler.resource_get(rtr_uuid=rtr_uuid, fields=fields)
 
     def router_list(self, context=None, filters=None):
-        rtr_get_handler = rtr_handler.LogicalRouterGetHandler(self._vnc_lib)
-        return rtr_get_handler.resource_list(context=context, filters=filters)
+        handler = rtr_handler.LogicalRouterHandler(self._vnc_lib)
+        return handler.resource_list(context=context, filters=filters)
 
     def router_count(self, filters=None):
-        rtr_get_handler = rtr_handler.LogicalRouterGetHandler(self._vnc_lib)
-        return rtr_get_handler.resource_count(filters=filters)
+        handler = rtr_handler.LogicalRouterHandler(self._vnc_lib)
+        return handler.resource_count(filters=filters)
