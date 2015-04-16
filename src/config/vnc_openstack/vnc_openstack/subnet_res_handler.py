@@ -24,16 +24,7 @@ import neutron_plugin_db_handler as db_handler
 import vn_res_handler as vn_handler
 
 
-class ContrailSubnetHandler(res_handler.ResourceGetHandler,
-                            res_handler.ResourceCreateHandler,
-                            res_handler.ResourceDeleteHandler,
-                            res_handler.ResourceUpdateHandler):
-
-    resource_list_method = 'virtual_network_reads_list'
-    resource_get_method = 'virtual_network_read'
-    resource_update_method = 'virtual_network_update'
-
-
+class SubnetMixin(object):
     @staticmethod
     def get_subnet_dict(subnet_obj, vn_obj):
         pass
@@ -297,7 +288,7 @@ class ContrailSubnetHandler(res_handler.ResourceGetHandler,
         return sn_q_dict
 
 
-class SubnetCreateHandler(ContrailSubnetHandler):
+class SubnetCreateHandler(res_handler.ResourceCreateHandler, SubnetMixin):
 
     def _get_netipam_obj(self, ipam_fq_name=None, vn_obj=None):
         if ipam_fq_name:
@@ -372,7 +363,7 @@ class SubnetCreateHandler(ContrailSubnetHandler):
         return subnet_info
 
 
-class SubnetDeleteHandler(ContrailSubnetHandler):
+class SubnetDeleteHandler(res_handler.ResourceDeleteHandler, SubnetMixin):
 
     def resource_delete(self, **kwargs):
         subnet_id = kwargs.get('subnet_id')
@@ -398,7 +389,9 @@ class SubnetDeleteHandler(ContrailSubnetHandler):
                 self._subnet_vnc_delete_mapping(subnet_id, subnet_key)
 
 
-class SubnetGetHandler(ContrailSubnetHandler):
+class SubnetGetHandler(res_handler.ResourceGetHandler, SubnetMixin):
+    resource_list_method = 'virtual_network_reads_list'
+    resource_get_method = 'virtual_network_read'
 
     def resource_get(self, **kwargs):
         subnet_id = kwargs.get('subnet_id')
@@ -500,7 +493,8 @@ class SubnetGetHandler(ContrailSubnetHandler):
         return self._get_subnet_list_after_apply_filter_(all_vn_objs, filters)
 
 
-class SubnetUpdateHandler(ContrailSubnetHandler):
+class SubnetUpdateHandler(res_handler.ResourceUpdateHandler, SubnetMixin):
+    resource_update_method = 'virtual_network_update'
 
     def _subnet_update(self, subnet_q, subnet_id, vn_obj, subnet_vnc,
                        ipam_ref, apply_subnet_host_routes=False):
@@ -581,3 +575,10 @@ class SubnetUpdateHandler(ContrailSubnetHandler):
                                                subnet_vnc, ipam_ref)
 
         return {}
+
+
+class SubnetHandler(SubnetGetHandler,
+                    SubnetCreateHandler,
+                    SubnetDeleteHandler,
+                    SubnetUpdateHandler):
+    pass

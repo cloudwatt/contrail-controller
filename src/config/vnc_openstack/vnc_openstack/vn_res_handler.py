@@ -118,7 +118,7 @@ class VNetworkMixin(object):
         if extra_dict:
             extra_dict['contrail:subnet_ipam'] = []
 
-        sn_handler = subnet_handler.ContrailSubnetHandler(self._vnc_lib)
+        sn_handler = subnet_handler.SubnetHandler(self._vnc_lib)
         for ipam_ref in ipam_refs:
             subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
@@ -218,7 +218,7 @@ class VNetworkMixin(object):
         net_q_dict['subnets'] = []
         if ipam_refs:
             extra_dict['contrail:subnet_ipam'] = []
-            sn_handler = subnet_handler.ContrailSubnetHandler(self._vnc_lib)
+            sn_handler = subnet_handler.SubnetHandler(self._vnc_lib)
             for ipam_ref in ipam_refs:
                 subnets = ipam_ref['attr'].get_ipam_subnets()
                 for subnet in subnets:

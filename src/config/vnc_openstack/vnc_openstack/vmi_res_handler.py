@@ -61,7 +61,7 @@ class VMInterfaceMixin(object):
         for vn_obj in vn_objs:
             memo_req['networks'][vn_obj.uuid] = vn_obj
             memo_req['subnets'][vn_obj.uuid] = (
-                subnet_handler.ContrailSubnetHandler.get_vn_subnets(vn_obj))
+                subnet_handler.SubnetHandler.get_vn_subnets(vn_obj))
 
         for iip_obj in iip_objs:
             memo_req['instance-ips'][iip_obj.uuid] = iip_obj
@@ -221,7 +221,7 @@ class VMInterfaceMixin(object):
             vn_obj = self._vnc_lib.virtual_network_read(id=net_id)
             port_req_memo['networks'][net_id] = vn_obj
             subnets_info = (
-                subnet_handler.ContrailSubnetHandler.get_vn_subnets(vn_obj))
+                subnet_handler.SubnetHandler.get_vn_subnets(vn_obj))
             port_req_memo['subnets'][net_id] = subnets_info
 
         if vmi_obj.parent_type != "project":

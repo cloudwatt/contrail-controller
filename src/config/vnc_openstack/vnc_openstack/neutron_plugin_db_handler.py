@@ -135,31 +135,31 @@ class DBInterfaceV2(DBInterface):
         return super(DBInterfaceV2, self).port_count(filters=filters)
 
     def subnet_create(self, subnet_q):
-        sn_create_handler = subnet_handler.SubnetCreateHandler(self._vnc_lib)
-        return sn_create_handler.resource_create(subnet_q=subnet_q)
+        handler = subnet_handler.SubnetHandler(self._vnc_lib)
+        return handler.resource_create(subnet_q=subnet_q)
 
     def subnet_update(self, subnet_id, subnet_q):
-        sn_update_handler = subnet_handler.SubnetUpdateHandler(self._vnc_lib)
-        return sn_update_handler.resource_update(subnet_id=subnet_id,
-                                                 subnet_q=subnet_q)
+        handler = subnet_handler.SubnetHandler(self._vnc_lib)
+        return handler.resource_update(subnet_id=subnet_id,
+                                       subnet_q=subnet_q)
 
     def subnet_delete(self, subnet_id):
-        sn_delete_handler = subnet_handler.SubnetDeleteHandler(self._vnc_lib)
+        sn_delete_handler = subnet_handler.SubnetHandler(self._vnc_lib)
         sn_delete_handler.resource_delete(subnet_id=subnet_id)
 
     def subnet_read(self, subnet_id):
-        sn_get_handler = subnet_handler.SubnetGetHandler(self._vnc_lib)
-        return sn_get_handler.resource_get(subnet_id=subnet_id)
+        handler = subnet_handler.SubnetHandler(self._vnc_lib)
+        return handler.resource_get(subnet_id=subnet_id)
 
     def subnets_list(self, context, filters=None):
-        sn_get_handler = subnet_handler.SubnetGetHandler(self._vnc_lib)
-        return sn_get_handler.resource_list(context=context,
-                                            filters=filters)
+        handler = subnet_handler.SubnetHandler(self._vnc_lib)
+        return handler.resource_list(context=context,
+                                     filters=filters)
 
     def subnets_count(self, context, filters=None):
-        sn_get_handler = subnet_handler.SubnetGetHandler(self._vnc_lib)
-        return sn_get_handler.resource_count(context=context,
-                                             filters=filters)
+        handler = subnet_handler.SubnetHandler(self._vnc_lib)
+        return handler.resource_count(context=context,
+                                      filters=filters)
 
     def floatingip_create(self, context, fip_q):
         handler = fip_handler.FloatingIpHandler(self._vnc_lib)
