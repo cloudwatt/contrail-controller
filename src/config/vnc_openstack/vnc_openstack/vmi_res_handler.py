@@ -27,21 +27,7 @@ import vn_res_handler as vn_handler
 import subnet_res_handler as subnet_handler
 
 
-class VMIHandler(res_handler.ResourceGetHandler,
-                 res_handler.ResourceCreateHandler,
-                 res_handler.ResourceDeleteHandler,
-                 res_handler.ResourceUpdateHandler):
-    resource_create_method = 'virtual_machine_interface_create'
-    resource_list_method = 'virtual_machine_interfaces_list'
-    resource_get_method = 'virtual_machine_interface_read'
-    resource_delete_method = 'virtual_machine_interface_delete'
-    resource_update_method = 'virtual_machine_interface_update'
-    back_ref_fields = ['logical_router_back_refs', 'instance_ip_back_refs',
-                       'floating_ip_back_refs']
-
-
 class VMInterfaceMixin(object):
-
     @staticmethod
     def _port_fixed_ips_is_present(check, against):
         for addr in check['ip_address']:
@@ -61,7 +47,7 @@ class VMInterfaceMixin(object):
         for vn_obj in vn_objs:
             memo_req['networks'][vn_obj.uuid] = vn_obj
             memo_req['subnets'][vn_obj.uuid] = (
-                subnet_handler.ContrailSubnetHandler.get_vn_subnets(vn_obj))
+                subnet_handler.SubnetHandler.get_vn_subnets(vn_obj))
 
         for iip_obj in iip_objs:
             memo_req['instance-ips'][iip_obj.uuid] = iip_obj
@@ -221,7 +207,7 @@ class VMInterfaceMixin(object):
             vn_obj = self._vnc_lib.virtual_network_read(id=net_id)
             port_req_memo['networks'][net_id] = vn_obj
             subnets_info = (
-                subnet_handler.ContrailSubnetHandler.get_vn_subnets(vn_obj))
+                subnet_handler.SubnetHandler.get_vn_subnets(vn_obj))
             port_req_memo['subnets'][net_id] = subnets_info
 
         if vmi_obj.parent_type != "project":
@@ -485,7 +471,8 @@ class VMInterfaceMixin(object):
         return vmi_obj.parent_uuid.replace('-', '')
 
 
-class VMInterfaceCreateHandler(VMIHandler, VMInterfaceMixin):
+class VMInterfaceCreateHandler(res_handler.ResourceCreateHandler, VMInterfaceMixin):
+    resource_create_method = 'virtual_machine_interface_create'
 
     def _get_tenant_id_for_create(self, context, resource):
         if context['is_admin'] and 'tenant_id' in resource:
@@ -628,7 +615,8 @@ class VMInterfaceCreateHandler(VMIHandler, VMInterfaceMixin):
         return ret_port_q
 
 
-class VMInterfaceUpdateHandler(VMIHandler, VMInterfaceMixin):
+class VMInterfaceUpdateHandler(res_handler.ResourceUpdateHandler, VMInterfaceMixin):
+    resource_update_method = 'virtual_machine_interface_update'
 
     def resource_update(self, **kwargs):
         port_id = kwargs.get('port_id')
@@ -652,7 +640,8 @@ class VMInterfaceUpdateHandler(VMIHandler, VMInterfaceMixin):
         return ret_port_q
 
 
-class VMInterfaceDeleteHandler(VMIHandler, VMInterfaceMixin):
+class VMInterfaceDeleteHandler(res_handler.ResourceDeleteHandler, VMInterfaceMixin):
+    resource_delete_method = 'virtual_machine_interface_delete'
 
     def resource_delete(self, **kwargs):
         port_id = kwargs.get('port_id')
@@ -710,7 +699,12 @@ class VMInterfaceDeleteHandler(VMIHandler, VMInterfaceMixin):
             pass
 
 
-class VMInterfaceGetHandler(VMIHandler, VMInterfaceMixin):
+class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
+    resource_list_method = 'virtual_machine_interfaces_list'
+    resource_get_method = 'virtual_machine_interface_read'
+    back_ref_fields = ['logical_router_back_refs', 'instance_ip_back_refs',
+                       'floating_ip_back_refs']
+
 
     # returns vm objects, net objects, and instance ip objects
     def _get_vmis_vms_nets_ips(self, context, project_ids=None,
@@ -839,8 +833,37 @@ class VMInterfaceGetHandler(VMIHandler, VMInterfaceMixin):
             db_handler.DBInterfaceV2._raise_contrail_exception('PortNotFound',
                                                                port_id=port_id)
 
-        extensions_enabled=kwargs.get('contrail_extensions_enabled', True)
+        extensions_enabled=kwargs.get('contrail_extensions_enabled', False)
         ret_port_q = self._vmi_to_neutron_port(
             vmi_obj, extensions_enabled=extensions_enabled)
 
         return ret_port_q
+
+    def resource_count(self, filters=None):
+        count = self._resource_count_optimized(filters)
+        if count is not None:
+            return count
+
+        if (filters.get('device_owner') == 'network:dhcp' or
+            'network:dhcp' in filters.get('device_owner', [])):
+            return 0
+
+        if 'tenant_id' in filters:
+            if isinstance(filters['tenant_id'], list):
+                project_id = str(uuid.UUID(filters['tenant_id'][0]))
+            else:
+                project_id = str(uuid.UUID(filters['tenant_id']))
+
+            nports = len(self._resource_list(parent_id=project_id))
+        else:
+            # across all projects - TODO very expensive,
+            # get only a count from api-server!
+            nports = len(self.resource_list(filters=filters))
+
+        return nports
+
+class VMInterfaceHandler(VMInterfaceGetHandler,
+                         VMInterfaceCreateHandler,
+                         VMInterfaceDeleteHandler,
+                         VMInterfaceUpdateHandler):
+    pass
