@@ -103,8 +103,8 @@ class DBInterfaceV2(DBInterface):
             contrail_extensions_enabled=self._contrail_extensions_enabled)
 
     def network_count(self, filters=None):
-        return super(DBInterfaceV2, self).network_count(filters=filters)
-
+        handler = vn_handler.VNetworkHandler(self._vnc_lib)
+        return handler.resource_count(filters=filters)
 
     def port_create(self, context, port_q):
         handler = vmi_handler.VMInterfaceHandler(
@@ -132,7 +132,8 @@ class DBInterfaceV2(DBInterface):
         return handler.resource_list(context=context, filters=filters)
 
     def port_count(self, filters=None):
-        return super(DBInterfaceV2, self).port_count(filters=filters)
+        handler = vmi_handler.VMInterfaceHandler(self._vnc_lib)
+        return handler.resource_count(filters=filters)
 
     def subnet_create(self, subnet_q):
         handler = subnet_handler.SubnetHandler(self._vnc_lib)
