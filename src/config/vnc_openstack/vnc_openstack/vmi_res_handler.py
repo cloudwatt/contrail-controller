@@ -27,21 +27,7 @@ import vn_res_handler as vn_handler
 import subnet_res_handler as subnet_handler
 
 
-class VMIHandler(res_handler.ResourceGetHandler,
-                 res_handler.ResourceCreateHandler,
-                 res_handler.ResourceDeleteHandler,
-                 res_handler.ResourceUpdateHandler):
-    resource_create_method = 'virtual_machine_interface_create'
-    resource_list_method = 'virtual_machine_interfaces_list'
-    resource_get_method = 'virtual_machine_interface_read'
-    resource_delete_method = 'virtual_machine_interface_delete'
-    resource_update_method = 'virtual_machine_interface_update'
-    back_ref_fields = ['logical_router_back_refs', 'instance_ip_back_refs',
-                       'floating_ip_back_refs']
-
-
 class VMInterfaceMixin(object):
-
     @staticmethod
     def _port_fixed_ips_is_present(check, against):
         for addr in check['ip_address']:
@@ -485,7 +471,8 @@ class VMInterfaceMixin(object):
         return vmi_obj.parent_uuid.replace('-', '')
 
 
-class VMInterfaceCreateHandler(VMIHandler, VMInterfaceMixin):
+class VMInterfaceCreateHandler(res_handler.ResourceCreateHandler, VMInterfaceMixin):
+    resource_create_method = 'virtual_machine_interface_create'
 
     def _get_tenant_id_for_create(self, context, resource):
         if context['is_admin'] and 'tenant_id' in resource:
@@ -628,7 +615,8 @@ class VMInterfaceCreateHandler(VMIHandler, VMInterfaceMixin):
         return ret_port_q
 
 
-class VMInterfaceUpdateHandler(VMIHandler, VMInterfaceMixin):
+class VMInterfaceUpdateHandler(res_handler.ResourceUpdateHandler, VMInterfaceMixin):
+    resource_update_method = 'virtual_machine_interface_update'
 
     def resource_update(self, **kwargs):
         port_id = kwargs.get('port_id')
@@ -652,7 +640,8 @@ class VMInterfaceUpdateHandler(VMIHandler, VMInterfaceMixin):
         return ret_port_q
 
 
-class VMInterfaceDeleteHandler(VMIHandler, VMInterfaceMixin):
+class VMInterfaceDeleteHandler(res_handler.ResourceDeleteHandler, VMInterfaceMixin):
+    resource_delete_method = 'virtual_machine_interface_delete'
 
     def resource_delete(self, **kwargs):
         port_id = kwargs.get('port_id')
@@ -710,7 +699,12 @@ class VMInterfaceDeleteHandler(VMIHandler, VMInterfaceMixin):
             pass
 
 
-class VMInterfaceGetHandler(VMIHandler, VMInterfaceMixin):
+class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
+    resource_list_method = 'virtual_machine_interfaces_list'
+    resource_get_method = 'virtual_machine_interface_read'
+    back_ref_fields = ['logical_router_back_refs', 'instance_ip_back_refs',
+                       'floating_ip_back_refs']
+
 
     # returns vm objects, net objects, and instance ip objects
     def _get_vmis_vms_nets_ips(self, context, project_ids=None,
@@ -839,8 +833,15 @@ class VMInterfaceGetHandler(VMIHandler, VMInterfaceMixin):
             db_handler.DBInterfaceV2._raise_contrail_exception('PortNotFound',
                                                                port_id=port_id)
 
-        extensions_enabled=kwargs.get('contrail_extensions_enabled', True)
+        extensions_enabled=kwargs.get('contrail_extensions_enabled', False)
         ret_port_q = self._vmi_to_neutron_port(
             vmi_obj, extensions_enabled=extensions_enabled)
 
         return ret_port_q
+
+
+class VMInterfaceHandler(VMInterfaceGetHandler,
+                         VMInterfaceCreateHandler,
+                         VMInterfaceDeleteHandler,
+                         VMInterfaceUpdateHandler):
+    pass
