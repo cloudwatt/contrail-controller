@@ -77,28 +77,28 @@ class DBInterfaceV2(DBInterface):
         return True
 
     def network_create(self, network_q):
-        vn_create_handler = vn_handler.VNetworkCreateHandler(self._vnc_lib)
-        return vn_create_handler.resource_create(
+        handler = vn_handler.VNetworkHandler(self._vnc_lib)
+        return handler.resource_create(
             network_q=network_q,
             contrail_extensions_enabled=self._contrail_extensions_enabled)
 
 
     def network_update(self, net_id, network_q):
-        vn_update_handler = vn_handler.VNetworkUpdateHandler(self._vnc_lib)
-        return vn_update_handler.resource_update(net_id=net_id,
-                                                 network_q=network_q)
+        handler = vn_handler.VNetworkHandler(self._vnc_lib)
+        return handler.resource_update(net_id=net_id,
+                                       network_q=network_q)
 
     def network_delete(self, net_id):
-        vn_delete_handler = vn_handler.VNetworkDeleteHandler(self._vnc_lib)
-        vn_delete_handler.resource_delete(net_id=net_id)
+        handler = vn_handler.VNetworkHandler(self._vnc_lib)
+        handler.resource_delete(net_id=net_id)
 
     def network_read(self, net_uuid, fields=None):
-        vn_get_handler = vn_handler.VNetworkGetHandler(self._vnc_lib)
-        return vn_get_handler.resource_get(net_uuid=net_uuid, fields=fields)
+        handler = vn_handler.VNetworkHandler(self._vnc_lib)
+        return handler.resource_get(net_uuid=net_uuid, fields=fields)
 
     def network_list(self, context=None, filters=None):
-        vn_get_handler = vn_handler.VNetworkGetHandler(self._vnc_lib)
-        return vn_get_handler.resource_list(
+        handler = vn_handler.VNetworkHandler(self._vnc_lib)
+        return handler.resource_list(
             context=context, filters=filters,
             contrail_extensions_enabled=self._contrail_extensions_enabled)
 

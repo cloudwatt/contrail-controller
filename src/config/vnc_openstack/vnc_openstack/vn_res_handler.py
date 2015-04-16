@@ -27,27 +27,9 @@ import neutron_plugin_db_handler as db_handler
 import subnet_res_handler as subnet_handler
 
 
-class VNetworkHandler(res_handler.ResourceGetHandler,
-                      res_handler.ResourceCreateHandler,
-                      res_handler.ResourceDeleteHandler):
-    resource_create_method = 'virtual_network_create'
-    resource_list_method = 'virtual_networks_list'
-    resource_get_method = 'virtual_network_read'
-    resource_delete_method = 'virtual_network_delete'
-    detail = False
-
-
 class VNetworkMixin(object):
 
-    def create_or_get_vn_obj(self, network_q):
-        return VNetworkGetHandler(self._vnc_lib)._resource_get(
-            id=network_q['id'])
-
-    def neutron_dict_to_vn(self, network_q):
-        vn_obj = self.create_or_get_vn_obj(network_q)
-        if not vn_obj:
-            return
-
+    def neutron_dict_to_vn(self, vn_obj, network_q):
         external_attr = network_q.get('router:external')
         net_name = network_q.get('name')
         if net_name:
@@ -237,9 +219,10 @@ class VNetworkMixin(object):
     #end _network_vnc_to_neutron
 
 
-class VNetworkCreateHandler(VNetworkHandler, VNetworkMixin):
+class VNetworkCreateHandler(res_handler.ResourceCreateHandler, VNetworkMixin):
+    resource_create_method = 'virtual_network_create'
     
-    def create_or_get_vn_obj(self, network_q):
+    def create_vn_obj(self, network_q):
         net_name = network_q.get('name', None)
         project_id = str(uuid.UUID(network_q['tenant_id']))
         proj_obj = self._project_read(proj_id=project_id)
@@ -264,20 +247,22 @@ class VNetworkCreateHandler(VNetworkHandler, VNetworkMixin):
         network_q = kwargs.get('network_q')
         contrail_extensions_enabled = kwargs.get('contrail_extensions_enabled',
                                                  False)
-        vn_obj = self.neutron_dict_to_vn(network_q)
+        vn_obj = self.neutron_dict_to_vn(self.create_vn_obj(network_q),
+                                         network_q)
         net_uuid =  self._resource_create(vn_obj)
 
         if vn_obj.router_external:
             fip_pool_obj = vnc_api.FloatingIpPool('floating-ip-pool', vn_obj)
             self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
-            
+
         ret_network_q = self.vn_to_neutron_dict(
             vn_obj, contrail_extensions_enabled=contrail_extensions_enabled)
 
         return ret_network_q
 
 
-class VNetworkUpdateHandler(VNetworkHandler, VNetworkMixin):
+class VNetworkUpdateHandler(res_handler.ResourceUpdateHandler, VNetworkMixin):
+    resource_update_method = 'virtual_network_update'
 
     def _update_external_router_attr(self, router_external, vn_obj):
         if router_external and not vn_obj.router_external:
@@ -298,7 +283,7 @@ class VNetworkUpdateHandler(VNetworkHandler, VNetworkMixin):
     def _validate_shared_attr(self, is_shared, vn_obj):
         if is_shared and not vn_obj.is_shared:
             for vmi in vn_obj.get_virtual_machine_interface_back_refs() or []:
-                vmi_obj = VMInterfaceGetHandler(self._vnc_lib)._resource_get(
+                vmi_obj = VMInterfaceHandler(self._vnc_lib)._resource_get(
                     id=vmi['uuid'])
                 if (vmi_obj.parent_type == 'project' and
                     vmi_obj.parent_uuid != vn_obj.parent_uuid):
@@ -306,7 +291,7 @@ class VNetworkUpdateHandler(VNetworkHandler, VNetworkMixin):
                         'InvalidSharedSetting',
                         network=vn_obj.display_name)
 
-    def create_or_get_vn_obj(self, network_q):
+    def get_vn_obj(self, network_q):
         vn_obj = self._resource_get(id=network_q['id'])
         router_external = network_q.get('router:external')
         if router_external is not None:
@@ -329,7 +314,7 @@ class VNetworkUpdateHandler(VNetworkHandler, VNetworkMixin):
                                                  True)
 
         network_q['id'] = net_id
-        vn_obj = self.neutron_dict_to_vn(network_q)
+        vn_obj = self.neutron_dict_to_vn(self.get_vn_obj(network_q), network_q)
         self._resource_update(vn_obj)
 
         ret_network_q = self.vn_to_neutron_dict(
@@ -338,7 +323,11 @@ class VNetworkUpdateHandler(VNetworkHandler, VNetworkMixin):
         return ret_network_q
 
 
-class VNetworkGetHandler(VNetworkHandler, VNetworkMixin):
+class VNetworkGetHandler(res_handler.ResourceGetHandler, VNetworkMixin):
+    resource_list_method = 'virtual_networks_list'
+    resource_get_method = 'virtual_network_read'
+    detail = False
+
     def _network_list_project(self, project_id, count=False):
         if project_id:
             try:
@@ -398,12 +387,12 @@ class VNetworkGetHandler(VNetworkHandler, VNetworkMixin):
         def _collect_without_prune(net_ids):
             for net_id in net_ids:
                 try:
-                    net_obj = self._network_read(net_id)
+                    net_obj = self._resource_get(id=net_id)
                     net_info = self._network_vnc_to_neutron(net_obj,
                           net_repr='LIST',
                           contrail_extensions_enabled=contrail_extensions_enabled)
                     ret_dict[net_id] = net_info
-                except NoIdError:
+                except vnc_exc.NoIdError:
                     pass
         #end _collect_without_prune
 
@@ -551,7 +540,8 @@ class VNetworkGetHandler(VNetworkHandler, VNetworkMixin):
         return ret_list
 
 
-class VNetworkDeleteHandler(VNetworkHandler):
+class VNetworkDeleteHandler(res_handler.ResourceDeleteHandler):
+    resource_delete_method = 'virtual_network_delete'
 
     def resource_delete(self, **kwargs):
         net_id = kwargs.get('net_id')
@@ -569,3 +559,10 @@ class VNetworkDeleteHandler(VNetworkHandler):
         except vnc_api.RefsExistError:
             db_handler.DBInterfaceV2._raise_contrail_exception('NetworkInUse',
                                                                net_id=net_id)
+
+
+class VNetworkHandler(VNetworkGetHandler,
+                      VNetworkCreateHandler,
+                      VNetworkUpdateHandler,
+                      VNetworkDeleteHandler):
+    pass
