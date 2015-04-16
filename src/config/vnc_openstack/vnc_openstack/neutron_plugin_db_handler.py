@@ -107,29 +107,29 @@ class DBInterfaceV2(DBInterface):
 
 
     def port_create(self, context, port_q):
-        vmi_create_handler = vmi_handler.VMInterfaceCreateHandler(
+        handler = vmi_handler.VMInterfaceHandler(
             self._vnc_lib)
-        return vmi_create_handler.resource_create(context=context,
-                                                  port_q=port_q)
+        return handler.resource_create(context=context,
+                                       port_q=port_q)
 
     def port_delete(self, port_id):
-        vmi_delete_handler = vmi_handler.VMInterfaceDeleteHandler(
+        handler = vmi_handler.VMInterfaceHandler(
             self._vnc_lib)
-        vmi_delete_handler.resource_delete(port_id=port_id)
+        handler.resource_delete(port_id=port_id)
 
     def port_update(self, port_id, port_q):
-        vmi_update_handler = vmi_handler.VMInterfaceUpdateHandler(
+        handler = vmi_handler.VMInterfaceHandler(
             self._vnc_lib)
-        return vmi_update_handler.resource_update(port_id=port_id,
-                                                  port_q=port_q)
+        return handler.resource_update(port_id=port_id,
+                                       port_q=port_q)
 
     def port_read(self, port_id):
-        vmi_list_handler = vmi_handler.VMInterfaceGetHandler(self._vnc_lib)
-        return vmi_list_handler.resource_get(port_id=port_id)
+        handler = vmi_handler.VMInterfaceHandler(self._vnc_lib)
+        return handler.resource_get(port_id=port_id)
 
     def port_list(self, context=None, filters=None):
-        vmi_list_handler = vmi_handler.VMInterfaceGetHandler(self._vnc_lib)
-        return vmi_list_handler.resource_list(context=context, filters=filters)
+        handler = vmi_handler.VMInterfaceHandler(self._vnc_lib)
+        return handler.resource_list(context=context, filters=filters)
 
     def port_count(self, filters=None):
         return super(DBInterfaceV2, self).port_count(filters=filters)
