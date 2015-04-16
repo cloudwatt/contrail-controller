@@ -489,7 +489,6 @@ class VNetworkGetHandler(res_handler.ResourceGetHandler, VNetworkMixin):
             ret_list.append(net)
 
         return ret_list
-      
 
     def resource_get(self, **kwargs):
         net_uuid = kwargs.get('net_uuid')
@@ -501,7 +500,6 @@ class VNetworkGetHandler(res_handler.ResourceGetHandler, VNetworkMixin):
 
         return self.vn_to_neutron_dict(
             vn_obj, kwargs.get('contrail_extensions_enabled', True))
-
 
     def resource_count(self, **kwargs):
         filters = kwargs.get('filters')

@@ -839,6 +839,28 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
 
         return ret_port_q
 
+    def resource_count(self, filters=None):
+        count = self._resource_count_optimized(filters)
+        if count is not None:
+            return count
+
+        if (filters.get('device_owner') == 'network:dhcp' or
+            'network:dhcp' in filters.get('device_owner', [])):
+            return 0
+
+        if 'tenant_id' in filters:
+            if isinstance(filters['tenant_id'], list):
+                project_id = str(uuid.UUID(filters['tenant_id'][0]))
+            else:
+                project_id = str(uuid.UUID(filters['tenant_id']))
+
+            nports = len(self._resource_list(parent_id=project_id))
+        else:
+            # across all projects - TODO very expensive,
+            # get only a count from api-server!
+            nports = len(self.resource_list(filters=filters))
+
+        return nports
 
 class VMInterfaceHandler(VMInterfaceGetHandler,
                          VMInterfaceCreateHandler,
