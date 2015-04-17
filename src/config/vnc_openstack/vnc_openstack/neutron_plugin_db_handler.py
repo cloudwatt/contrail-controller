@@ -29,6 +29,7 @@ import vmi_res_handler as vmi_handler
 import vn_res_handler as vn_handler
 
 
+
 class DBInterfaceV2(DBInterface):
 
     def __init__(self, *args, **kwargs):
