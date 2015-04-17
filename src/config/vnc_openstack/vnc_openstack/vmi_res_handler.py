@@ -319,7 +319,7 @@ class VMInterfaceMixin(object):
     def _set_vmi_security_groups(self, vmi_obj, sec_group_list):
         vmi_obj.set_security_group_list([])
         for sg_id in sec_group_list or []:
-            # TODO() optimize to not read sg (only uuid/fqn needed)
+            # TODO optimize to not read sg (only uuid/fqn needed)
             sg_obj = self._vnc_lib.security_group_read(id=sg_id)
             vmi_obj.add_security_group(sg_obj)
 

@@ -101,8 +101,8 @@ class FloatingIpMixin(object):
         fip_q_dict['floating_network_id'] = floating_net_id
         fip_q_dict['router_id'] = router_id
         fip_q_dict['port_id'] = port_id
-        fip_q_dict['fixed_ip_address'] = (
-            fip_obj.get_floating_ip_fixed_ip_address())
+        fip_q_dict['fixed_ip_address'] = \
+            fip_obj.get_floating_ip_fixed_ip_address()
         fip_q_dict['status'] = n_constants.PORT_STATUS_ACTIVE
 
         return fip_q_dict
