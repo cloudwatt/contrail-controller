@@ -34,12 +34,12 @@ class ContrailResourceHandler(object):
     def _raise_contrail_exception(exc, **kwargs):
         db_handler.DBInterfaceV2._raise_contrail_exception(exc, **kwargs)
 
-
     def neutron_dict_to_res_obj(self, res_q):
         pass
 
     def res_obj_to_neutron_dict(self, res_obj):
         pass
+
 
 class ResourceCreateHandler(ContrailResourceHandler):
     resource_create_method = None
@@ -55,7 +55,7 @@ class ResourceCreateHandler(ContrailResourceHandler):
             obj_uuid = create_method(obj)
         except (vnc_exc.PermissionDenied, vnc_exc.BadRequest) as e:
             db_handler.DBInterfaceV2._raise_contrail_exception(
-                'BadRequest', resource=resource_type, msg=str(e))
+                'BadRequest', msg=str(e))
         return obj_uuid
 
     def validate_input(self, res_q):
@@ -127,7 +127,8 @@ class ResourceGetHandler(ContrailResourceHandler):
                 detail=False)[json_resource]['count']
         else:
             count = lambda pid: self._resource_list(
-                parent_id=pid, count=True, detail=False)[json_resource]['count']
+                parent_id=pid, count=True,
+                detail=False)[json_resource]['count']
 
         ret = [count(pid) for pid in project_ids] if project_ids \
             else [count(None)]
@@ -191,13 +192,15 @@ class SGHandler(ResourceGetHandler, ResourceCreateHandler,
         proj_obj = vnc_api.Project(vnc_api_common.SG_NO_RULE_FQ_NAME[1],
                                    domain_obj)
         sg_rules = vnc_api.PolicyEntriesType()
-        id_perms = vnc_api.IdPermsType(enable=True,
-                               description="Security group with no rules",
-                               user_visible=False)
-        sg_obj = vnc_api.SecurityGroup(name=vnc_api_common.SG_NO_RULE_NAME,
-                               parent_obj=proj_obj,
-                               security_group_entries=sg_rules,
-                               id_perms=id_perms)
+        id_perms = vnc_api.IdPermsType(
+            enable=True,
+            description="Security group with no rules",
+            user_visible=False)
+        sg_obj = vnc_api.SecurityGroup(
+            name=vnc_api_common.SG_NO_RULE_NAME,
+            parent_obj=proj_obj,
+            security_group_entries=sg_rules,
+            id_perms=id_perms)
         self._resource_create(sg_obj)
         return sg_obj
     # end _create_no_rule_sg
