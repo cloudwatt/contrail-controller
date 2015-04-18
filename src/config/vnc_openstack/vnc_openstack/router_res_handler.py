@@ -12,10 +12,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import netaddr
 import uuid
 
 from cfgm_common import exceptions as vnc_exc
+import netaddr
 from neutron.common import constants as n_constants
 from neutron.common import exceptions as n_exceptions
 from vnc_api import vnc_api
@@ -23,9 +23,8 @@ from vnc_api import vnc_api
 
 import contrail_res_handler as res_handler
 import neutron_plugin_db_handler as db_handler
-import vn_res_handler as vn_handler
-import vmi_res_handler as vmi_handler
 import subnet_res_handler as subnet_handler
+import vmi_res_handler as vmi_handler
 
 SNAT_SERVICE_TEMPLATE_FQ_NAME = ['default-domain', 'netns-snat-template']
 
@@ -38,12 +37,8 @@ class LogicalRouterMixin(object):
         if vn_refs:
             return vn_refs[0]['uuid']
 
-    def _create_or_get_rtr_obj(self, router_q):
-        return self._resource_get(id=router_q.get('id'))
-
-    def _neutron_dict_to_rtr_obj(self, router_q):
+    def _neutron_dict_to_rtr_obj(self, router_q, rtr_obj):
         rtr_name = router_q.get('name')
-        rtr_obj = self._create_or_get_rtr_obj(router_q)
         id_perms = rtr_obj.get_id_perms()
         if 'admin_state_up' in router_q:
             id_perms.enable = router_q['admin_state_up']
@@ -57,7 +52,7 @@ class LogicalRouterMixin(object):
     def _rtr_obj_to_neutron_dict(self, rtr_obj,
                                  contrail_extensions_enabled=True):
         rtr_q_dict = {}
-        
+
         rtr_q_dict['id'] = rtr_obj.uuid
         if not rtr_obj.display_name:
             rtr_q_dict['name'] = rtr_obj.get_fq_name()[-1]
@@ -95,7 +90,8 @@ class LogicalRouterMixin(object):
                     if not vn_obj.get_router_external():
                         self._raise_contrail_exception(
                             'BadRequest', resource='router',
-                            msg="Network %s is not a valid external network" % network_id)
+                            msg="Network %s is not a valid "
+                                "external network" % network_id)
                 except vnc_exc.NoIdError:
                     self._raise_contrail_exception('NetworkNotFound',
                                                    net_id=network_id)
@@ -112,7 +108,8 @@ class LogicalRouterMixin(object):
             st_obj = self._vnc_lib.service_template_read(
                 fq_name=SNAT_SERVICE_TEMPLATE_FQ_NAME)
         except vnc_exc.NoIdError:
-            self._raise_contrail_exception('BadRequest', resouce='router',
+            self._raise_contrail_exception(
+                'BadRequest', resouce='router',
                 msg="Unable to set or clear the default gateway")
 
         # Get the service instance if it exists
@@ -120,7 +117,6 @@ class LogicalRouterMixin(object):
         si_fq_name = project_obj.get_fq_name() + [si_name]
         try:
             si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
-            si_uuid = si_obj.uuid
         except vnc_exc.NoIdError:
             si_obj = None
 
@@ -129,7 +125,6 @@ class LogicalRouterMixin(object):
         rt_fq_name = project_obj.get_fq_name() + [rt_name]
         try:
             rt_obj = self._vnc_lib.route_table_read(fq_name=rt_fq_name)
-            rt_uuid = rt_obj.uuid
         except vnc_exc.NoIdError:
             rt_obj = None
 
@@ -154,7 +149,7 @@ class LogicalRouterMixin(object):
         si_obj.set_service_instance_properties(si_prop_obj)
         si_obj.set_service_template(st_obj)
         if si_created:
-            si_uuid = self._vnc_lib.service_instance_create(si_obj)
+            self._vnc_lib.service_instance_create(si_obj)
         else:
             self._vnc_lib.service_instance_update(si_obj)
 
@@ -166,18 +161,20 @@ class LogicalRouterMixin(object):
             rt_obj = vnc_api.RouteTable(name=rt_name, parent_obj=project_obj)
             rt_created = True
 
-        rt_obj.set_routes(RouteTableType.factory([route_obj]))
+        rt_obj.set_routes(vnc_api.RouteTableType.factory([route_obj]))
+
         if rt_created:
-            rt_uuid = self._vnc_lib.route_table_create(rt_obj)
+            self._vnc_lib.route_table_create(rt_obj)
         else:
             self._vnc_lib.route_table_update(rt_obj)
 
         # Associate route table to all private networks connected onto
         # that router
-        vmi_get_handler = vmi_handler.VMInterfaceGetHandler(self._vnc_api)
+        vmi_get_handler = vmi_handler.VMInterfaceGetHandler(self._vnc_lib)
         for intf in router_obj.get_virtual_machine_interface_refs() or []:
             port_id = intf['uuid']
-            net_id = vmi_get_handler.resource_get(port_id=port_id)['network_id']
+            net_id = vmi_get_handler.resource_get(
+                port_id=port_id)['network_id']
             try:
                 vn_obj = self._vnc_lib.virtual_network_read(id=net_id)
             except vnc_exc.NoIdError:
@@ -208,7 +205,6 @@ class LogicalRouterMixin(object):
         rt_fq_name = project_obj.get_fq_name() + [rt_name]
         try:
             rt_obj = self._vnc_lib.route_table_read(fq_name=rt_fq_name)
-            rt_uuid = rt_obj.uuid
         except vnc_exc.NoIdError:
             rt_obj = None
 
@@ -242,7 +238,6 @@ class LogicalRouterMixin(object):
 
         try:
             rt_obj = self._vnc_lib.route_table_read(fq_name=rt_fq_name)
-            rt_uuid = rt_obj.uuid
         except vnc_exc.NoIdError:
             # No route table set with that router ID, the gateway is not set
             return
@@ -250,7 +245,7 @@ class LogicalRouterMixin(object):
         try:
             vn_obj = self._vnc_lib.virtual_network_read(id=network_id)
         except vnc_exc.NoIdError:
-            raise n_exceptions.NetworkNotFound(net_id=ext_net_id)
+            raise n_exceptions.NetworkNotFound(net_id=network_id)
 
         vn_obj.set_route_table(rt_obj)
         self._vnc_lib.virtual_network_update(vn_obj)
@@ -262,23 +257,23 @@ class LogicalRouterMixin(object):
 
         try:
             rt_obj = self._vnc_lib.route_table_read(fq_name=rt_fq_name)
-            rt_uuid = rt_obj.uuid
         except vnc_exc.NoIdError:
             # No route table set with that router ID, the gateway is not set
             return
 
         try:
             vn_obj = self._vnc_lib.virtual_network_read(id=network_id)
-        except NoIdError:
-            raise exceptions.NetworkNotFound(net_id=ext_net_id)
+        except vnc_exc.NoIdError:
+            raise n_exceptions.NetworkNotFound(net_id=network_id)
         vn_obj.del_route_table(rt_obj)
         self._vnc_lib.virtual_network_update(vn_obj)
 
 
-class LogicalRouterCreateHandler(res_handler.ResourceCreateHandler, LogicalRouterMixin):
+class LogicalRouterCreateHandler(res_handler.ResourceCreateHandler,
+                                 LogicalRouterMixin):
     resource_create_method = 'logical_router_create'
 
-    def _create_or_get_rtr_obj(self, router_q):
+    def _create_router(self, router_q):
         project_id = str(uuid.UUID(router_q['tenant_id']))
         project_obj = self._project_read(proj_id=project_id)
         id_perms = vnc_api.IdPermsType(enable=True)
@@ -287,8 +282,9 @@ class LogicalRouterCreateHandler(res_handler.ResourceCreateHandler, LogicalRoute
 
     def resource_create(self, **kwargs):
         router_q = kwargs.get('router_q')
-        
-        rtr_obj = self._neutron_dict_to_rtr_obj(router_q)
+
+        rtr_obj = self._neutron_dict_to_rtr_obj(
+            router_q, self._create_router(router_q))
         rtr_uuid = self._resource_create(rtr_obj)
 
         # read it back to update id perms
@@ -298,7 +294,8 @@ class LogicalRouterCreateHandler(res_handler.ResourceCreateHandler, LogicalRoute
             rtr_obj, kwargs.get('contrail_extensions_enabled', True))
 
 
-class LogicalRouterDeleteHandler(res_handler.ResourceDeleteHandler, LogicalRouterMixin):
+class LogicalRouterDeleteHandler(res_handler.ResourceDeleteHandler,
+                                 LogicalRouterMixin):
     resource_delete_method = 'logical_router_delete'
 
     def resource_delete(self, **kwargs):
@@ -319,20 +316,26 @@ class LogicalRouterDeleteHandler(res_handler.ResourceDeleteHandler, LogicalRoute
             self._raise_contrail_exception('RouterInUse', router_id=rtr_id)
 
 
-class LogicalRouterUpdateHandler(res_handler.ResourceUpdateHandler, LogicalRouterMixin):
+class LogicalRouterUpdateHandler(res_handler.ResourceUpdateHandler,
+                                 LogicalRouterMixin):
     resource_update_method = 'logical_router_update'
+
+    def _get_rtr_obj(self, router_q):
+        return self._resource_get(id=router_q.get('id'))
 
     def resource_update(self, **kwargs):
         router_q = kwargs.get('router_q')
         rtr_id = kwargs.get('rtr_id')
         router_q['id'] = rtr_id
-        rtr_obj = self._neutron_dict_to_rtr_obj(router_q)
+        rtr_obj = self._neutron_dict_to_rtr_obj(
+            router_q, self._get_rtr_obj(router_q))
         self._resource_update(rtr_obj)
         self._router_add_gateway(router_q, rtr_obj)
         return self._rtr_obj_to_neutron_dict(rtr_obj)
 
 
-class LogicalRouterGetHandler(res_handler.ResourceGetHandler, LogicalRouterMixin):
+class LogicalRouterGetHandler(res_handler.ResourceGetHandler,
+                              LogicalRouterMixin):
     resource_get_method = 'logical_router_read'
     resource_list_method = 'logical_routers_list'
 
@@ -371,12 +374,12 @@ class LogicalRouterGetHandler(res_handler.ResourceGetHandler, LogicalRouterMixin
         return self._get_router_list_for_ids(rtr_uuids)
 
     def _fip_pool_ref_routers(self, project_id):
-        """TODO"""
+        """TODO."""
         return []
 
     def get_vmi_obj_router_id(self, vmi_obj, project_id=None):
         vmi_get_handler = vmi_handler.VMInterfaceGetHandler(
-                self._vnc_lib)
+            self._vnc_lib)
 
         port_net_id = vmi_obj.get_virtual_network_refs()[0]['uuid']
         # find router_id from port
@@ -387,7 +390,7 @@ class LogicalRouterGetHandler(res_handler.ResourceGetHandler, LogicalRouterMixin
                         or []):
                 vmi_obj = vmi_get_handler._resource_get(id=vmi['uuid'])
                 if (vmi_obj.get_virtual_network_refs()[0]['uuid'] ==
-                    port_net_id):
+                        port_net_id):
                     return router_obj.uuid
 
     def resource_get(self, **kwargs):
@@ -407,7 +410,7 @@ class LogicalRouterGetHandler(res_handler.ResourceGetHandler, LogicalRouterMixin
         ret_list = []
 
         if filters and 'shared' in filters:
-            if filters['shared'][0] == True:
+            if filters['shared'][0]:
                 # no support for shared routers
                 return ret_list
 
@@ -415,9 +418,6 @@ class LogicalRouterGetHandler(res_handler.ResourceGetHandler, LogicalRouterMixin
             return self._get_router_list_for_project()
 
         all_rtrs = []  # all n/ws in all projects
-      
-            
-       
         if 'id' in filters:
             return self._get_router_list_for_ids(filters['id'],
                                                  extensions_enabled)
@@ -452,8 +452,8 @@ class LogicalRouterGetHandler(res_handler.ResourceGetHandler, LogicalRouterMixin
                 try:
                     rtr_obj = self._resource_get(id=proj_rtr['uuid'])
                     if not self._filters_is_present(
-                        filters, 'name',
-                        rtr_obj.get_display_name() or rtr_obj.name):
+                            filters, 'name',
+                            rtr_obj.get_display_name() or rtr_obj.name):
                         continue
                     rtr_info = self._rtr_obj_to_neutron_dict(
                         rtr_obj,
@@ -472,6 +472,221 @@ class LogicalRouterGetHandler(res_handler.ResourceGetHandler, LogicalRouterMixin
 
         rtrs_info = self.router_list(filters=filters)
         return len(rtrs_info)
+
+
+class LogicalRouterInterfaceHandler(res_handler.ResourceGetHandler,
+                                    res_handler.ResourceUpdateHandler,
+                                    LogicalRouterMixin):
+    resource_get_method = 'logical_router_read'
+    resource_list_method = 'logical_routers_list'
+    resource_update_method = 'logical_router_update'
+
+    def __init__(self, vnc_lib):
+        super(LogicalRouterInterfaceHandler, self).__init__(vnc_lib)
+        self._vmi_handler = vmi_handler.VMInterfaceHandler(
+            self._vnc_lib)
+        self._subnet_handler = subnet_handler.SubnetHandler(self._vnc_lib)
+
+    def _get_subnet_cidr(self, subnet_id, subnet_dict):
+        for subnet in subnet_dict:
+            if subnet['id'] == subnet_id:
+                return subnet['cidr']
+
+    def _check_for_dup_router_subnet(self, router_id, subnet_id,
+                                     subnet_cidr):
+        try:
+            router_vmi_objs = self._vmi_handler._resource_list(
+                back_ref_id=[router_id])
+            # It's possible router ports are on the same network, but
+            # different subnets.
+            new_ipnet = netaddr.IPNetwork(subnet_cidr)
+            port_req_memo = {'virtual-machines': {},
+                             'instance-ips': {},
+                             'subnets': {}}
+            for vmi_obj in router_vmi_objs:
+                net_id = self._vmi_handler.get_vmi_net_id(vmi_obj)
+                vn_obj = self._vnc_lib.virtual_network_read(id=net_id)
+
+                fixed_ips = self._vmi_handler.get_vmi_ip_dict(vmi_obj, vn_obj,
+                                                              port_req_memo)
+                vn_subnets = (
+                    subnet_handler.ContrailSubnetHandler.get_vn_subnets(
+                        vn_obj))
+                for ip in fixed_ips:
+                    if ip['subnet_id'] == subnet_id:
+                        msg = ("Router %s already has a port on subnet %s"
+                               % (router_id, subnet_id))
+                        self._raise_contrail_exception(
+                            'BadRequest', resource='router', msg=msg)
+                    sub_id = ip['subnet_id']
+                    cidr = self._get_subnet_cidr(sub_id, vn_subnets)
+                    ipnet = netaddr.IPNetwork(cidr)
+                    match1 = netaddr.all_matching_cidrs(new_ipnet, [cidr])
+                    match2 = netaddr.all_matching_cidrs(ipnet, [subnet_cidr])
+                    if match1 or match2:
+                        data = {'subnet_cidr': subnet_cidr,
+                                'subnet_id': subnet_id,
+                                'cidr': cidr,
+                                'sub_id': sub_id}
+                        msg = (_("Cidr %(subnet_cidr)s of subnet "
+                                 "%(subnet_id)s overlaps with cidr %(cidr)s "
+                                 "of subnet %(sub_id)s") % data)
+                        self._raise_contrail_exception(
+                            'BadRequest', resource='router', msg=msg)
+        except vnc_exc.NoIdError:
+            pass
+
+    def _get_router_iface_vnc_info(self, context, router_id, port_id=None,
+                                   subnet_id=None):
+        if port_id:
+            vmi_obj, vn_obj, rtr_uuid, fixed_ips = self._get_vmi_info(port_id)
+            net_id = vn_obj.uuid
+            if rtr_uuid:
+                self._raise_contrail_exception('PortInUse',
+                                               net_id=net_id,
+                                               port_id=port_id,
+                                               device_id=rtr_uuid)
+            if len(fixed_ips) != 1:
+                self._raise_contrail_exception(
+                    'BadRequest', resource='router',
+                    msg='Router port must have exactly one fixed IP')
+
+            subnet_id = fixed_ips[0]['subnet_id']
+
+        subnet_vnc = self._subnet_handler._subnet_read(subnet_id=subnet_id)
+        if not subnet_vnc.default_gateway:
+            self._raise_contrail_exception(
+                'BadRequest', resource='router',
+                msg='Subnet for router interface must have a gateway IP')
+        subnet_cidr = '%s/%s' % (subnet_vnc.subnet.get_ip_prefix(),
+                                 subnet_vnc.subnet.get_ip_prefix_len())
+
+        self._check_for_dup_router_subnet(router_id, subnet_id, subnet_cidr)
+
+        if not port_id:
+            vn_obj = self._subnet_handler.get_vn_obj_for_subnet_id(subnet_id)
+            fixed_ip = {'ip_address': subnet_vnc.default_gateway,
+                        'subnet_id': subnet_id}
+            port_q = {'tenant_id': vn_obj.parent_uuid.replace('-', ''),
+                      'network_id': vn_obj.uuid,
+                      'fixed_ips': [fixed_ip],
+                      'admin_state_up': True,
+                      'device_id': router_id,
+                      'device_owner': n_constants.DEVICE_OWNER_ROUTER_INTF,
+                      'name': ''}
+            port = self._vmi_handler.resource_create(context=context,
+                                                     port_q=port_q)
+            vmi_obj = self._vmi_handler._resource_get(id=port['id'])
+
+        return vmi_obj, vn_obj, subnet_id
+
+    def _update_snat_routing_table(self, router_obj, network_id,
+                                   set_snat=True):
+        project_obj = self._vnc_lib.project_read(id=router_obj.parent_uuid)
+        rt_name = 'rt_' + router_obj.uuid
+        rt_fq_name = project_obj.get_fq_name() + [rt_name]
+
+        try:
+            rt_obj = self._vnc_lib.route_table_read(fq_name=rt_fq_name)
+        except vnc_exc.NoIdError:
+            # No route table set with that router ID, the gateway is not set
+            return
+
+        try:
+            vn_obj = self._vnc_lib.virtual_network_read(id=network_id)
+        except vnc_exc.NoIdError:
+            raise n_exceptions.NetworkNotFound(net_id=network_id)
+        if set_snat:
+            vn_obj.set_route_table(rt_obj)
+        else:
+            vn_obj.del_route_table(rt_obj)
+        self._vnc_lib.virtual_network_update(vn_obj)
+
+    def _get_vmi_info(self, port_id):
+        vmi_obj = self._vmi_handler._resource_get(id=port_id)
+        net_id = self._vmi_handler.get_vmi_net_id(vmi_obj)
+        port_req_memo = {'virtual-machines': {},
+                         'instance-ips': {},
+                         'subnets': {}}
+        rtr_uuid = self._vmi_handler.get_port_gw_id(vmi_obj,
+                                                    port_req_memo)
+        vn_obj = self._vnc_lib.virtual_network_read(id=net_id)
+        fixed_ips = self._vmi_handler.get_vmi_ip_dict(vmi_obj, vn_obj,
+                                                      port_req_memo)
+        return vmi_obj, vn_obj, rtr_uuid, fixed_ips
+
+    def add_router_interface(self, **kwargs):
+        router_id = kwargs.get('router_id')
+        subnet_id = kwargs.get('subnet_id')
+        port_id = kwargs.get('port_id')
+        context = kwargs.get('context')
+        router_obj = self._resource_get(id=router_id)
+
+        if not port_id and not subnet_id:
+            self._raise_contrail_exception(
+                'BadRequest', resource='router',
+                msg='Either port or subnet must be specified')
+
+        vmi_obj, vn_obj, subnet_id = self._get_router_iface_vnc_info(
+            context, router_id, port_id=port_id, subnet_id=subnet_id)
+
+        self._update_snat_routing_table(router_obj, vn_obj.uuid)
+        vmi_obj.set_virtual_machine_interface_device_owner(
+            n_constants.DEVICE_OWNER_ROUTER_INTF)
+        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+        router_obj.add_virtual_machine_interface(vmi_obj)
+        self._resource_update(router_obj)
+        info = {'id': router_id,
+                'tenant_id': vn_obj.parent_uuid.replace('-', ''),
+                'port_id': vmi_obj.uuid,
+                'subnet_id': subnet_id}
+        return info
+
+    def remove_router_interface(self, **kwargs):
+        router_id = kwargs.get('router_id')
+        subnet_id = kwargs.get('subnet_id')
+        port_id = kwargs.get('port_id')
+        router_obj = self._resource_get(id=router_id)
+        tenant_id = None
+        vmi_obj = None
+        if port_id:
+            vmi_obj, vn_obj, rtr_uuid, fixed_ips = self._get_vmi_info(port_id)
+            if not rtr_uuid:
+                self._raise_contrail_exception('RouterInterfaceNotFound',
+                                               router_id=router_id,
+                                               port_id=port_id)
+            port_subnet_id = fixed_ips[0]['subnet_id']
+            if subnet_id and (port_subnet_id != subnet_id):
+                self._raise_contrail_exception('SubnetMismatchForPort',
+                                               port_id=port_id,
+                                               subnet_id=subnet_id)
+            subnet_id = port_subnet_id
+        elif subnet_id:
+            vn_obj = self._subnet_handler.get_vn_obj_for_subnet_id(subnet_id)
+
+            for intf in router_obj.get_virtual_machine_interface_refs() or []:
+                port_id = intf['uuid']
+                _, _, _, fixed_ips = self._get_vmi_info(port_id)
+                if subnet_id == fixed_ips[0]['subnet_id']:
+                    break
+            else:
+                msg = ("Subnet %s not connected to router %s "
+                       % (router_id, subnet_id))
+                self._raise_contrail_exception('BadRequest',
+                                               resource='router', msg=msg)
+        network_id = vn_obj.uuid
+        tenant_id = vn_obj.parent_uuid.replace('-', '')
+        self._update_snat_routing_table(router_obj, network_id, set_snat=False)
+        if not vmi_obj:
+            vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=port_id)
+        router_obj.del_virtual_machine_interface(vmi_obj)
+        self._vnc_lib.logical_router_update(router_obj)
+        self._vmi_handler.resource_delete(port_id=port_id)
+        info = {'id': router_id,
+                'tenant_id': tenant_id,
+                'port_id': port_id,
+                'subnet_id': subnet_id}
+        return info
 
 
 class LogicalRouterHandler(LogicalRouterGetHandler,

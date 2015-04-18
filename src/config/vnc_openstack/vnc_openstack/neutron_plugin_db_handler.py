@@ -13,7 +13,6 @@
 #    under the License.
 
 
-import gevent
 try:
     import ujson as json
 except ImportError:
@@ -22,16 +21,13 @@ import uuid
 
 import bottle
 
-from cfgm_common import exceptions
-from vnc_api import vnc_api
-from neutron_plugin_db import DBInterface
-
-import contrail_res_handler as res_handler
 import fip_res_handler as fip_handler
+from neutron_plugin_db import DBInterface
 import router_res_handler as rtr_handler
 import subnet_res_handler as subnet_handler
-import vn_res_handler as vn_handler
 import vmi_res_handler as vmi_handler
+import vn_res_handler as vn_handler
+
 
 class DBInterfaceV2(DBInterface):
 
@@ -60,18 +56,17 @@ class DBInterfaceV2(DBInterface):
                 pass
         return ids
 
-
     @staticmethod
     def _filters_is_present(filters, key_name, match_value):
         if filters:
             if key_name in filters:
                 try:
                     if key_name == 'tenant_id':
-                        filter_value = [str(uuid.UUID(t_id)) \
+                        filter_value = [str(uuid.UUID(t_id))
                                         for t_id in filters[key_name]]
                     else:
                         filter_value = filters[key_name]
-                    idx = filter_value.index(match_value)
+                    filter_value.index(match_value)
                 except ValueError:  # not in requested list
                     return False
         return True
@@ -81,7 +76,6 @@ class DBInterfaceV2(DBInterface):
         return handler.resource_create(
             network_q=network_q,
             contrail_extensions_enabled=self._contrail_extensions_enabled)
-
 
     def network_update(self, net_id, network_q):
         handler = vn_handler.VNetworkHandler(self._vnc_lib)
@@ -218,3 +212,17 @@ class DBInterfaceV2(DBInterface):
     def router_count(self, filters=None):
         handler = rtr_handler.LogicalRouterHandler(self._vnc_lib)
         return handler.resource_count(filters=filters)
+
+    def add_router_interface(self, context, router_id, port_id=None,
+                             subnet_id=None):
+        handler = rtr_handler.LogicalRouterInterfaceHandler(self._vnc_lib)
+        return handler.add_router_interface(context=context,
+                                            router_id=router_id,
+                                            port_id=port_id,
+                                            subnet_id=subnet_id)
+
+    def remove_router_interface(self, router_id, port_id=None, subnet_id=None):
+        handler = rtr_handler.LogicalRouterInterfaceHandler(self._vnc_lib)
+        return handler.remove_router_interface(router_id=router_id,
+                                               port_id=port_id,
+                                               subnet_id=subnet_id)

@@ -12,7 +12,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import netaddr
 import uuid
 
 from cfgm_common import exceptions as vnc_exc
@@ -21,27 +20,23 @@ from vnc_api import vnc_api
 
 
 import contrail_res_handler as res_handler
-import neutron_plugin_db_handler as db_handler
 import router_res_handler as router_handler
-import subnet_res_handler as subnet_handler
-import vn_res_handler as vn_handler
 import vmi_res_handler as vmi_handler
 
 
 class FloatingIpMixin(object):
 
-    def _create_or_get_fip_obj(self, fip_q):
-        return self._resource_get(id=fip_q['id'])
-
     def _neutron_dict_to_fip_obj(self, fip_q, is_admin=False,
-                                 tenant_id=None):
-        fip_obj = self._create_or_get_fip_obj(fip_q)
+                                 tenant_id=None, fip_obj=None):
+        if not fip_obj:
+            fip_obj = self._resource_get(id=fip_q['id'])
+
         vmi_get_handler = vmi_handler.VMInterfaceGetHandler(
-                self._vnc_lib)
+            self._vnc_lib)
         port_id = fip_q.get('port_id')
         if port_id:
             vmi_obj = vmi_get_handler._resource_get(id=port_id)
-            
+
             if is_admin:
                 vmi_tenant_id = vmi_get_handler.get_vmi_tenant_id(vmi_obj)
                 if vmi_tenant_id != tenant_id:
@@ -77,7 +72,7 @@ class FloatingIpMixin(object):
     def _fip_obj_to_neutron_dict(self, fip_obj):
         fip_q_dict = {}
         vmi_get_handler = vmi_handler.VMInterfaceGetHandler(
-                self._vnc_lib)
+            self._vnc_lib)
 
         floating_net_id = self._vnc_lib.fq_name_to_id(
             'virtual-network', fip_obj.get_fq_name()[:-2])
@@ -97,7 +92,7 @@ class FloatingIpMixin(object):
 
         if vmi_obj:
             router_get_handler = router_handler.LogicalRouterGetHandler(
-                self._vnc_lib) 
+                self._vnc_lib)
             router_id = router_get_handler.get_vmi_obj_router_id(vmi_obj)
 
         fip_q_dict['id'] = fip_obj.uuid
@@ -106,22 +101,24 @@ class FloatingIpMixin(object):
         fip_q_dict['floating_network_id'] = floating_net_id
         fip_q_dict['router_id'] = router_id
         fip_q_dict['port_id'] = port_id
-        fip_q_dict['fixed_ip_address'] = fip_obj.get_floating_ip_fixed_ip_address()
+        fip_q_dict['fixed_ip_address'] = (
+            fip_obj.get_floating_ip_fixed_ip_address())
         fip_q_dict['status'] = n_constants.PORT_STATUS_ACTIVE
 
         return fip_q_dict
 
 
-class FloatingIpCreateHandler(res_handler.ResourceCreateHandler, FloatingIpMixin):
+class FloatingIpCreateHandler(res_handler.ResourceCreateHandler,
+                              FloatingIpMixin):
     resource_create_method = 'floating_ip_create'
 
-    def _create_or_get_fip_obj(self, fip_q):
-        # TODO for now create from default pool, later
+    def _create_fip_obj(self, fip_q):
+        # TODO() for now create from default pool, later
         # use first available pool on net
         net_id = fip_q['floating_network_id']
         try:
             fq_name = self._vnc_lib.floating_ip_pools_list(
-                        parent_id=net_id)['floating-ip-pools'][0]['fq_name']
+                parent_id=net_id)['floating-ip-pools'][0]['fq_name']
         except IndexError:
             # IndexError could happens when an attempt to
             # retrieve a floating ip pool from a private network.
@@ -144,18 +141,19 @@ class FloatingIpCreateHandler(res_handler.ResourceCreateHandler, FloatingIpMixin
         fip_q = kwargs.get('fip_q')
 
         try:
+            fip_obj = self._create_fip_obj(fip_q)
             fip_obj = self._neutron_dict_to_fip_obj(fip_q, context['is_admin'],
-                                                    context['tenant'])
-        except Exception as  e:
-            #logging.exception(e)
-            msg = _('Internal error when trying to create floating ip. '
-                    'Please be sure the network %s is an external '
-                    'network.') % (fip_q['floating_network_id'])
+                                                    context['tenant'],
+                                                    fip_obj=fip_obj)
+        except Exception:
+            msg = ('Internal error when trying to create floating ip. '
+                   'Please be sure the network %s is an external '
+                   'network.') % (fip_q['floating_network_id'])
             self._raise_contrail_exception('BadRequest',
                                            resource='floatingip', msg=msg)
         try:
             fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
-        except Exception as e:
+        except Exception:
             self._raise_contrail_exception('IpAddressGenerationFailure',
                                            net_id=fip_q['floating_network_id'])
         fip_obj = self._vnc_lib.floating_ip_read(id=fip_uuid)
@@ -171,7 +169,8 @@ class FloatingIpDeleteHandler(res_handler.ResourceDeleteHandler):
         self._resource_delete(id=fip_id)
 
 
-class FloatingIpUpdateHandler(res_handler.ResourceUpdateHandler, FloatingIpMixin):
+class FloatingIpUpdateHandler(res_handler.ResourceUpdateHandler,
+                              FloatingIpMixin):
     resource_update_method = 'floating_ip_update'
 
     def resource_update(self, **kwargs):
@@ -194,7 +193,7 @@ class FloatingIpGetHandler(res_handler.ResourceGetHandler, FloatingIpMixin):
             fip_obj = self._resource_get(id=kwargs.get('fip_uuid'))
         except vnc_exc.NoIdError:
             self._raise_contrail_exception('FloatingIPNotFound',
-                                           floatingip_id=fip_uuid)
+                                           floatingip_id=fip_obj.uuid)
 
         return self._fip_obj_to_neutron_dict(fip_obj)
 
@@ -237,7 +236,6 @@ class FloatingIpGetHandler(res_handler.ResourceGetHandler, FloatingIpMixin):
         return ret_list
 
     def resource_count(self, **kwargs):
-        context = kwargs.get('context')
         filters = kwargs.get('filters')
         count = self._resource_count_optimized(filters)
         if count is not None:

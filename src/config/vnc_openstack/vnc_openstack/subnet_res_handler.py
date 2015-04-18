@@ -12,11 +12,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import netaddr
 import uuid
 
 from cfgm_common import exceptions as vnc_exc
-from neutron.common import constants as n_constants
+import netaddr
 from vnc_api import vnc_api
 
 import contrail_res_handler as res_handler
@@ -86,7 +85,15 @@ class SubnetMixin(object):
                 self._subnet_vnc_create_mapping(subnet_id, key)
             return subnet_id
 
-    def _subnet_read(self, subnet_key):
+    def get_vn_obj_for_subnet_id(self, subnet_id):
+        subnet_key = self._vnc_lib.kv_retrieve(subnet_id)
+        net_uuid = subnet_key.split(' ')[0]
+        return self._resource_get(id=net_uuid)
+
+    def _subnet_read(self, subnet_key=None, subnet_id=None):
+        if not subnet_key:
+            subnet_key = self._vnc_lib.kv_retrieve(subnet_id)
+
         net_uuid = subnet_key.split(' ')[0]
         try:
             vn_obj = self._resource_get(id=net_uuid)
@@ -95,7 +102,7 @@ class SubnetMixin(object):
 
         ipam_refs = vn_obj.get_network_ipam_refs()
 
-        # TODO scope for optimization
+        # TODO() scope for optimization
         for ipam_ref in ipam_refs or []:
             subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
             for subnet_vnc in subnet_vncs:
@@ -112,16 +119,15 @@ class SubnetMixin(object):
             self._subnet_vnc_create_mapping(id, key)
             return self._subnet_vnc_read_mapping(key=key)
 
-    def get_subnet_id_cidr(self, subnet_obj, vn_obj=None):
-        sn_id = subnet_obj.subnet_uuid
-        if not sn_id and vn_obj:
-            subnet_key = self._subnet_vnc_get_key(
-                            subnet_vnc, vn_obj.uuid)
+    def get_subnet_id_cidr(self, subnet_vnc, vn_obj=None):
+        sn_id = None
+        if vn_obj:
+            subnet_key = self._subnet_vnc_get_key(subnet_vnc, vn_obj.uuid)
             sn_id = self._subnet_vnc_read_or_create_mapping(
                 id=subnet_vnc.subnet_uuid, key=subnet_key)
 
-        cidr = '%s/%s' % (subnet_obj.subnet.get_ip_prefix(),
-                          subnet_obj.subnet.get_ip_prefix_len())
+        cidr = '%s/%s' % (subnet_vnc.subnet.get_ip_prefix(),
+                          subnet_vnc.subnet.get_ip_prefix_len())
         return (sn_id, cidr)
 
     def _get_allocation_pools_dict(self, alloc_objs, gateway_ip, cidr):
@@ -129,21 +135,21 @@ class SubnetMixin(object):
         for alloc_obj in alloc_objs or []:
             first_ip = alloc_obj.get_start()
             last_ip = alloc_obj.get_end()
-            alloc_dict = {'first_ip':first_ip, 'last_ip':last_ip}
+            alloc_dict = {'first_ip': first_ip, 'last_ip': last_ip}
             allocation_pools.append(alloc_dict)
 
         if not allocation_pools:
             if (int(netaddr.IPNetwork(gateway_ip).network) ==
-                int(netaddr.IPNetwork(cidr).network+1)):
+                    int(netaddr.IPNetwork(cidr).network+1)):
                 first_ip = str(netaddr.IPNetwork(cidr).network + 2)
             else:
                 first_ip = str(netaddr.IPNetwork(cidr).network + 1)
             last_ip = str(netaddr.IPNetwork(cidr).broadcast - 1)
-            cidr_pool = {'first_ip':first_ip, 'last_ip':last_ip}
+            cidr_pool = {'first_ip': first_ip, 'last_ip': last_ip}
             allocation_pools.append(cidr_pool)
 
         return allocation_pools
- 
+
     @staticmethod
     def get_vn_subnets(vn_obj):
         """Returns a list of dicts of subnet-id:cidr of a vn."""
@@ -166,11 +172,12 @@ class SubnetMixin(object):
         pfx = str(cidr.network)
         pfx_len = int(cidr.prefixlen)
         if cidr.version != 4 and cidr.version != 6:
-            db_handler.DBInterfaceV2._raise_contrail_exception('BadRequest',
+            db_handler.DBInterfaceV2._raise_contrail_exception(
+                'BadRequest',
                 resource='subnet', msg='Unknown IP family')
         elif cidr.version != int(subnet_q['ip_version']):
-            msg = _("cidr '%s' does not match the ip_version '%s'") \
-                    %(subnet_q['cidr'], subnet_q['ip_version'])
+            msg = ("cidr '%s' does not match the ip_version '%s'"
+                   % (subnet_q['cidr'], subnet_q['ip_version']))
             db_handler.DBInterfaceV2._raise_contrail_exception(
                 'InvalidInput', error_message=msg)
         if 'gateway_ip' in subnet_q:
@@ -187,8 +194,8 @@ class SubnetMixin(object):
 
         dhcp_option_list = None
         if 'dns_nameservers' in subnet_q and subnet_q['dns_nameservers']:
-            dhcp_options=[]
-            dns_servers=" ".join(subnet_q['dns_nameservers'])
+            dhcp_options = []
+            dns_servers = " ".join(subnet_q['dns_nameservers'])
             if dns_servers:
                 dhcp_options.append(vnc_api.DhcpOptionType(
                     dhcp_option_name='6', dhcp_option_value=dns_servers))
@@ -197,7 +204,7 @@ class SubnetMixin(object):
 
         host_route_list = None
         if 'host_routes' in subnet_q and subnet_q['host_routes']:
-            host_routes=[]
+            host_routes = []
             for host_route in subnet_q['host_routes']:
                 host_routes.append(vnc_api.RouteType(
                     prefix=host_route['destination'],
@@ -209,18 +216,18 @@ class SubnetMixin(object):
             dhcp_config = subnet_q['enable_dhcp']
         else:
             dhcp_config = None
-        sn_name=subnet_q.get('name')
-        subnet_vnc = vnc_api.IpamSubnetType(subnet=vnc_api.SubnetType(
-                                                pfx, pfx_len),
-                                            default_gateway=default_gw,
-                                            enable_dhcp=dhcp_config,
-                                            dns_nameservers=None,
-                                            allocation_pools=alloc_pools,
-                                            addr_from_start=True,
-                                            dhcp_option_list=dhcp_option_list,
-                                            host_routes=host_route_list,
-                                            subnet_name=sn_name,
-                                            subnet_uuid=str(uuid.uuid4()))
+        sn_name = subnet_q.get('name')
+        subnet_vnc = vnc_api.IpamSubnetType(
+            subnet=vnc_api.SubnetType(pfx, pfx_len),
+            default_gateway=default_gw,
+            enable_dhcp=dhcp_config,
+            dns_nameservers=None,
+            allocation_pools=alloc_pools,
+            addr_from_start=True,
+            dhcp_option_list=dhcp_option_list,
+            host_routes=host_route_list,
+            subnet_name=sn_name,
+            subnet_uuid=str(uuid.uuid4()))
 
         return subnet_vnc
 
@@ -239,7 +246,7 @@ class SubnetMixin(object):
         cidr = '%s/%s' % (subnet_vnc.subnet.get_ip_prefix(),
                           subnet_vnc.subnet.get_ip_prefix_len())
         sn_q_dict['cidr'] = cidr
-        sn_q_dict['ip_version'] = netaddr.IPNetwork(cidr).version # 4 or 6
+        sn_q_dict['ip_version'] = netaddr.IPNetwork(cidr).version  # 4 or 6
 
         # read from useragent kv only for old subnets created
         # before schema had uuid in subnet
@@ -309,7 +316,6 @@ class SubnetCreateHandler(res_handler.ResourceCreateHandler, SubnetMixin):
                 netipam_obj = vnc_api.NetworkIpam()
             return netipam_obj
 
-
     def resource_create(self, **kwargs):
         subnet_q = kwargs.get('subnet_q')
         net_id = subnet_q['network_id']
@@ -338,15 +344,16 @@ class SubnetCreateHandler(res_handler.ResourceCreateHandler, SubnetMixin):
         else:  # virtual-network already linked to this ipam
             for subnet in net_ipam_ref['attr'].get_ipam_subnets():
                 if subnet_key == self._subnet_vnc_get_key(subnet, net_id):
-                    existing_sn_id = self._subnet_vnc_read_mapping(key=subnet_key)
+                    existing_sn_id = self._subnet_vnc_read_mapping(
+                        key=subnet_key)
                     # duplicate !!
-                    msg = _("Cidr %s overlaps with another subnet of subnet %s"
-                            ) % (subnet_q['cidr'], existing_sn_id)
+                    msg = ("Cidr %s overlaps with another subnet of subnet %s"
+                           ) % (subnet_q['cidr'], existing_sn_id)
                     db_handler.DBInterfaceV2._raise_contrail_exception(
                         'BadRequest', resource='subnet', msg=msg)
             vnsn_data = net_ipam_ref['attr']
             vnsn_data.ipam_subnets.append(subnet_vnc)
-            # TODO: Add 'ref_update' API that will set this field
+            # TODO(): Add 'ref_update' API that will set this field
             vn_obj._pending_field_updates.add('network_ipam_refs')
         self._resource_update(vn_obj)
 
@@ -375,8 +382,8 @@ class SubnetDeleteHandler(res_handler.ResourceDeleteHandler, SubnetMixin):
         for ipam_ref in ipam_refs or []:
             orig_subnets = ipam_ref['attr'].get_ipam_subnets()
             new_subnets = [subnet_vnc for subnet_vnc in orig_subnets
-                           if self._subnet_vnc_get_key(subnet_vnc,
-                           net_id) != subnet_key]
+                           if self._subnet_vnc_get_key(
+                               subnet_vnc, net_id) != subnet_key]
             if len(orig_subnets) != len(new_subnets):
                 # matched subnet to be deleted
                 ipam_ref['attr'].set_ipam_subnets(new_subnets)
@@ -390,7 +397,7 @@ class SubnetDeleteHandler(res_handler.ResourceDeleteHandler, SubnetMixin):
 
 
 class SubnetGetHandler(res_handler.ResourceGetHandler, SubnetMixin):
-    resource_list_method = 'virtual_network_reads_list'
+    resource_list_method = 'virtual_networks_list'
     resource_get_method = 'virtual_network_read'
 
     def resource_get(self, **kwargs):
@@ -440,7 +447,7 @@ class SubnetGetHandler(res_handler.ResourceGetHandler, SubnetMixin):
                     sn_name = sn_info['name']
 
                     if (filters and 'shared' in filters and
-                        filters['shared'][0] == True):
+                            filters['shared'][0]):
                         if not vn_obj.is_shared:
                             continue
                     elif filters:
@@ -489,7 +496,7 @@ class SubnetGetHandler(res_handler.ResourceGetHandler, SubnetMixin):
             all_vn_objs.extend(vn_objs)
             vn_objs = vn_get_handler.vn_list_shared()
             all_vn_objs.extend(vn_objs)
-        
+
         return self._get_subnet_list_after_apply_filter_(all_vn_objs, filters)
 
 
@@ -504,12 +511,12 @@ class SubnetUpdateHandler(res_handler.ResourceUpdateHandler, SubnetMixin):
         if subnet_q.get('gateway_ip') is not None:
             subnet_vnc.set_default_gateway(subnet_q['gateway_ip'])
 
-        if subnet_q.get('enable_dhcp') is not  None:
-            ubnet_vnc.set_enable_dhcp(subnet_q['enable_dhcp'])
+        if subnet_q.get('enable_dhcp') is not None:
+            subnet_vnc.set_enable_dhcp(subnet_q['enable_dhcp'])
 
         if subnet_q.get('dns_nameservers') is not None:
-            dhcp_options=[]
-            dns_servers=" ".join(subnet_q['dns_nameservers'])
+            dhcp_options = []
+            dns_servers = " ".join(subnet_q['dns_nameservers'])
             if dns_servers:
                 dhcp_options.append(vnc_api.DhcpOptionType(
                     dhcp_option_name='6', dhcp_option_value=dns_servers))
@@ -520,7 +527,7 @@ class SubnetUpdateHandler(res_handler.ResourceUpdateHandler, SubnetMixin):
                 subnet_vnc.set_dhcp_option_list(None)
 
         if subnet_q.get('host_routes') is not None:
-            host_routes=[]
+            host_routes = []
             for host_route in subnet_q['host_routes']:
                 host_routes.append(vnc_api.RouteType(
                     prefix=host_route['destination'],
@@ -547,16 +554,16 @@ class SubnetUpdateHandler(res_handler.ResourceUpdateHandler, SubnetMixin):
         return ret_subnet_q
 
     def resource_update(self, **kwargs):
-        subnet_q =  kwargs.get('subnet_q')
+        subnet_q = kwargs.get('subnet_q')
         subnet_id = kwargs.get('subnet_id')
         if 'gateway_ip' in subnet_q:
-            if subnet_q['gateway_ip'] != None:
+            if subnet_q['gateway_ip'] is not None:
                 self._raise_contrail_exception(
                     'BadRequest', resource='subnet',
                     msg="update of gateway is not supported")
 
         if 'allocation_pools' in subnet_q:
-            if subnet_q['allocation_pools'] != None:
+            if subnet_q['allocation_pools'] is not None:
                 db_handler.DBInterfaceV2._raise_contrail_exception(
                     'BadRequest', resource='subnet',
                     msg="update of allocation_pools is not allowed")
@@ -565,12 +572,12 @@ class SubnetUpdateHandler(res_handler.ResourceUpdateHandler, SubnetMixin):
         net_id = subnet_key.split()[0]
         vn_obj = self._resource_get(id=net_id)
         ipam_refs = vn_obj.get_network_ipam_refs()
-        subnet_found = False
         for ipam_ref in ipam_refs or []:
             subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet_vnc in subnets:
-                if self._subnet_vnc_get_key(subnet_vnc,
-                           net_id) == subnet_key:
+                if self._subnet_vnc_get_key(
+                        subnet_vnc,
+                        net_id) == subnet_key:
                     return self._subnet_update(subnet_q, subnet_id, vn_obj,
                                                subnet_vnc, ipam_ref)
 

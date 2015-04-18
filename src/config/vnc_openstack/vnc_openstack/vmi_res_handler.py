@@ -12,19 +12,18 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import gevent
-import netaddr
 import uuid
 
 from cfgm_common import exceptions as vnc_exc
+import gevent
+import netaddr
 from neutron.common import constants as n_constants
 from vnc_api import vnc_api
 
-
 import contrail_res_handler as res_handler
 import neutron_plugin_db_handler as db_handler
-import vn_res_handler as vn_handler
 import subnet_res_handler as subnet_handler
+import vn_res_handler as vn_handler
 
 
 class VMInterfaceMixin(object):
@@ -56,7 +55,7 @@ class VMInterfaceMixin(object):
             memo_req['virtual-machines'][vm_obj.uuid] = vm_obj
 
         return memo_req
-        
+
     @staticmethod
     def _get_extra_dhcp_opts(vmi_obj):
         dhcp_options_list = (
@@ -74,7 +73,7 @@ class VMInterfaceMixin(object):
         allowed_address_pairs = (
             vmi_obj.get_virtual_machine_interface_allowed_address_pairs())
         if (allowed_address_pairs and
-            allowed_address_pairs.allowed_address_pair):
+                allowed_address_pairs.allowed_address_pair):
             address_pairs = []
             for aap in allowed_address_pairs.allowed_address_pair:
                 pair = {}
@@ -92,7 +91,7 @@ class VMInterfaceMixin(object):
         subnets_info = memo_req['subnets'].get(vn_obj.uuid)
         for subnet_info in subnets_info or []:
             if (netaddr.IPAddress(ip_addr) in
-                netaddr.IPSet([subnet_info['cidr']])):
+                    netaddr.IPSet([subnet_info['cidr']])):
                 return subnet_info['id']
 
         ipam_refs = vn_obj.get_network_ipam_refs()
@@ -104,7 +103,7 @@ class VMInterfaceMixin(object):
                 if netaddr.IPAddress(ip_addr) in netaddr.IPSet([cidr]):
                     return subnet_vnc.subnet_uuid
 
-    def _get_vmi_ip_dict(self, vmi_obj, vn_obj, port_req_memo):
+    def get_vmi_ip_dict(self, vmi_obj, vn_obj, port_req_memo):
         ip_dict_list = []
         ip_back_refs = getattr(vmi_obj, 'instance_ip_back_refs', None)
         for ip_back_ref in ip_back_refs or []:
@@ -114,8 +113,7 @@ class VMInterfaceMixin(object):
                 ip_obj = port_req_memo['instance-ips'][iip_uuid]
             except KeyError:
                 try:
-                    ip_obj = res_handler.InstanceIpHandler(
-                                self._vnc_lib)._resource_get(id=iip_uuid)
+                    ip_obj = self._vnc_lib.instance_ip_read(id=iip_uuid)
                 except vnc_exc.NoIdError:
                     continue
 
@@ -129,27 +127,36 @@ class VMInterfaceMixin(object):
 
         return ip_dict_list
 
-    def _get_port_gw_id(self, vmi_obj, port_req_memo):
+    def get_vmi_net_id(self, vmi_obj):
+        net_refs = vmi_obj.get_virtual_network_refs()
+        if net_refs:
+            return net_refs[0]['uuid']
+
+    def get_port_gw_id(self, vmi_obj, port_req_memo):
         vm_refs = vmi_obj.get_virtual_machine_refs()
+        if not vm_refs:
+            return
+
         vm_uuid = vm_refs[0]['uuid']
         vm_obj = None
         vm_obj = port_req_memo['virtual-machines'].get(vm_uuid)
-        
+
         if vm_obj is None:
             try:
                 vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
             except vnc_exc.NoIdError:
                 return None
 
-            port_req_memo['virtual-machines'][vm_uuid] = vm_obj 
+            port_req_memo['virtual-machines'][vm_uuid] = vm_obj
 
         si_refs = vm_obj.get_service_instance_refs()
         if not si_refs:
             return None
 
         try:
-            si_obj = self._vnc_lib.service_instance_read(id=si_refs[0]['uuid'], 
-                    fields=["logical_router_back_refs"])
+            si_obj = self._vnc_lib.service_instance_read(
+                id=si_refs[0]['uuid'],
+                fields=["logical_router_back_refs"])
         except vnc_exc.NoIdError:
             return None
 
@@ -173,7 +180,7 @@ class VMInterfaceMixin(object):
     def _vmi_to_neutron_port(self, vmi_obj, port_req_memo=None,
                              extensions_enabled=False):
         port_q_dict = {}
-        
+
         if not getattr(vmi_obj, 'display_name'):
             # for ports created directly via vnc_api
             port_q_dict['name'] = vmi_obj.get_fq_name()[-1]
@@ -182,11 +189,9 @@ class VMInterfaceMixin(object):
 
         port_q_dict['id'] = vmi_obj.uuid
 
-        net_refs = vmi_obj.get_virtual_network_refs()
-        if net_refs:
-            net_id = net_refs[0]['uuid']
-        else:
-            # TODO hack to force network_id on default port
+        net_id = self.get_vmi_net_id(vmi_obj)
+        if not net_id:
+            # TODO() hack to force network_id on default port
             # as neutron needs it
             net_id = self._vnc_lib.obj_to_id(vnc_api.VirtualNetwork())
 
@@ -218,7 +223,7 @@ class VMInterfaceMixin(object):
         port_q_dict['tenant_id'] = proj_id
         port_q_dict['network_id'] = net_id
 
-        # TODO RHS below may need fixing
+        # TODO() RHS below may need fixing
         port_q_dict['mac_address'] = ''
         mac_refs = vmi_obj.get_virtual_machine_interface_mac_addresses()
         if mac_refs:
@@ -232,8 +237,8 @@ class VMInterfaceMixin(object):
         if address_pairs:
             port_q_dict['allowed_address_pairs'] = address_pairs
 
-        port_q_dict['fixed_ips'] = self._get_vmi_ip_dict(vmi_obj, vn_obj,
-                                                         port_req_memo)
+        port_q_dict['fixed_ips'] = self.get_vmi_ip_dict(vmi_obj, vn_obj,
+                                                        port_req_memo)
 
         port_q_dict['security_groups'] = []
         sg_refs = vmi_obj.get_security_group_refs()
@@ -244,17 +249,17 @@ class VMInterfaceMixin(object):
 
         # port can be router interface or vm interface
         # for perf read logical_router_back_ref only when we have to
-        port_parent_name = vmi_obj.parent_name
         router_refs = getattr(vmi_obj, 'logical_router_back_refs', None)
         if router_refs is not None:
             port_q_dict['device_id'] = router_refs[0]['uuid']
         elif vmi_obj.parent_type == 'virtual-machine':
             port_q_dict['device_id'] = vmi_obj.parent_name
         elif vmi_obj.get_virtual_machine_refs() is not None:
-            rtr_uuid = self._get_port_gw_id(vmi_obj, port_req_memo)
+            rtr_uuid = self.get_port_gw_id(vmi_obj, port_req_memo)
             if rtr_uuid:
                 port_q_dict['device_id'] = rtr_uuid
-                port_q_dict['device_owner'] = n_constants.DEVICE_OWNER_ROUTER_GW
+                port_q_dict['device_owner'] = (
+                    n_constants.DEVICE_OWNER_ROUTER_GW)
             else:
                 port_q_dict['device_id'] = (
                     vmi_obj.get_virtual_machine_refs()[0]['to'][-1])
@@ -277,11 +282,10 @@ class VMInterfaceMixin(object):
 
         return port_q_dict
 
-    def _create_or_get_vmi_obj(self, port_q, vn_obj):
-        return self._vnc_lib.virtual_machine_interface_get(id=port_q['id'])
-
     def _set_vm_instance_for_vmi(self, vmi_obj, instance_name):
-        """ This function also deletes the old virtual_machine object
+        """Set vm instance for the vmi.
+
+        This function also deletes the old virtual_machine object
         associated with the vmi (if any) after the new virtual_machine
         object is associated with it.
         """
@@ -292,15 +296,15 @@ class VMInterfaceMixin(object):
                 delete_vm_list.append(vm_ref)
 
         if instance_name or delete_vm_list:
-            vm_handler = res_handler.VMHandler(self._vnc_lib)
+            vm_handler = res_handler.VMachineHandler(self._vnc_lib)
 
         if instance_name:
             try:
                 instance_obj = vm_handler.ensure_vm_instance(instance_name)
                 vmi_obj.set_virtual_machine(instance_obj)
             except vnc_exc.RefsExistError as e:
-                db_handler.DBInterfaceV2._raise_contrail_exception('BadRequest',
-                                               resource='port', msg=str(e))
+                db_handler.DBInterfaceV2._raise_contrail_exception(
+                    'BadRequest', resource='port', msg=str(e))
         else:
             vmi_obj.set_virtual_machine_list([])
 
@@ -314,8 +318,8 @@ class VMInterfaceMixin(object):
 
     def _set_vmi_security_groups(self, vmi_obj, sec_group_list):
         vmi_obj.set_security_group_list([])
-        for sg_id in security_groups or []:
-            # TODO optimize to not read sg (only uuid/fqn needed)
+        for sg_id in sec_group_list or []:
+            # TODO() optimize to not read sg (only uuid/fqn needed)
             sg_obj = self._vnc_lib.security_group_read(id=sg_id)
             vmi_obj.add_security_group(sg_obj)
 
@@ -323,15 +327,15 @@ class VMInterfaceMixin(object):
         # no_rule group should be used.
         if not sec_group_list:
             sg_obj = res_handler.SGHandler(
-                        self._vnc_lib)._get_no_rule_security_group()
+                self._vnc_lib)._get_no_rule_security_group()
             vmi_obj.add_security_group(sg_obj)
 
     def _set_vmi_extra_dhcp_options(self, vmi_obj, extra_dhcp_options):
         dhcp_options = []
         for option_pair in extra_dhcp_options or []:
             option = vnc_api.DhcpOptionType(
-                        dhcp_option_name=option_pair['opt_name'],
-                        dhcp_option_value=option_pair['opt_value'])
+                dhcp_option_name=option_pair['opt_name'],
+                dhcp_option_value=option_pair['opt_value'])
             dhcp_options.append(option)
 
         if dhcp_options:
@@ -340,19 +344,18 @@ class VMInterfaceMixin(object):
         else:
             vmi_obj.set_virtual_machine_interface_dhcp_option_list(None)
 
-
     def _set_vmi_allowed_addr_pairs(self, vmi_obj, allowed_addr_pairs):
         aap_array = []
         for address_pair in allowed_addr_pairs or []:
-            mode = u'active-standby';
+            mode = u'active-standby'
             if 'mac_address' not in address_pair:
                 address_pair['mac_address'] = ""
 
             cidr = address_pair['ip_address'].split('/')
             if len(cidr) == 1:
-                subnet=vnc_api.SubnetType(cidr[0], 32);
+                subnet = vnc_api.SubnetType(cidr[0], 32)
             elif len(cidr) == 2:
-                subnet=vnc_api.SubnetType(cidr[0], int(cidr[1]));
+                subnet = vnc_api.SubnetType(cidr[0], int(cidr[1]))
             else:
                 db_handler.DBHandlerV2._raise_contrail_exception(
                     'BadRequest', resource='port',
@@ -393,16 +396,17 @@ class VMInterfaceMixin(object):
                     'IpAddressInUse', net_id=net_id,
                     ip_address=ip_addr)
 
+    def _neutron_port_to_vmi(self, port_q, vmi_obj=None):
+        if not vmi_obj:
+            vmi_obj = self._resource_get(id=port_q.get('id'))
 
-    def _neutron_port_to_vmi(self, port_q, vn_obj=None):
-        vmi_obj = self._create_or_get_vmi_obj(port_q, vn_obj)
         if 'name' in port_q and port_q['name']:
             vmi_obj.display_name = port_q['name']
 
         device_owner = port_q.get('device_owner')
         if (device_owner not in [n_constants.DEVICE_OWNER_ROUTER_INTF,
                                  n_constants.DEVICE_OWNER_ROUTER_GW]
-            and 'device_id' in port_q):
+                and 'device_id' in port_q):
             self._set_vm_instance_for_vmi(vmi_obj, port_q.get('device_id'))
 
         if device_owner is not None:
@@ -411,7 +415,7 @@ class VMInterfaceMixin(object):
         if 'security_groups' in port_q:
             self._set_vmi_security_groups(vmi_obj,
                                           port_q.get('security_groups'))
-        
+
         if 'admin_state_up' in port_q:
             id_perms = vmi_obj.get_id_perms()
             id_perms.enable = port_q['admin_state_up']
@@ -420,10 +424,10 @@ class VMInterfaceMixin(object):
         if 'extra_dhcp_opts' in port_q:
             self._set_vmi_extra_dhcp_options(vmi_obj,
                                              port_q.get('extra_dhcp_options'))
-            
+
         if ('allowed_address_pairs' in port_q):
-            self._set_vmi_allowed_addr_pairs(vmi_obj,
-                                             port_q.get('allowed_address_pairs'))
+            self._set_vmi_allowed_addr_pairs(
+                vmi_obj, port_q.get('allowed_address_pairs'))
 
         if 'fixed_ips' in port_q:
             net_id = (port_q.get('network_id') or
@@ -431,7 +435,6 @@ class VMInterfaceMixin(object):
             self._check_vmi_fixed_ips(vmi_obj, port_q.get('fixed_ips'), net_id)
 
         return vmi_obj
-
 
     def _create_instance_ips(self, vn_obj, vmi_obj, fixed_ips, ip_family="v4"):
         created_iip_ids = []
@@ -444,9 +447,9 @@ class VMInterfaceMixin(object):
                 ip_addr = fixed_ip.get('ip_address')
                 if ip_addr is not None:
                     if netaddr.IPAddress(ip_addr).version == 4:
-                        ip_family="v4"
+                        ip_family = "v4"
                     elif netaddr.IPAddress(ip_addr).version == 6:
-                        ip_family="v6"
+                        ip_family = "v6"
                 subnet_id = fixed_ip.get('subnet_id')
                 ip_id = ip_handler.create_instance_ip(vn_obj, vmi_obj, ip_addr,
                                                       subnet_id, ip_family)
@@ -471,7 +474,8 @@ class VMInterfaceMixin(object):
         return vmi_obj.parent_uuid.replace('-', '')
 
 
-class VMInterfaceCreateHandler(res_handler.ResourceCreateHandler, VMInterfaceMixin):
+class VMInterfaceCreateHandler(res_handler.ResourceCreateHandler,
+                               VMInterfaceMixin):
     resource_create_method = 'virtual_machine_interface_create'
 
     def _get_tenant_id_for_create(self, context, resource):
@@ -479,7 +483,7 @@ class VMInterfaceCreateHandler(res_handler.ResourceCreateHandler, VMInterfaceMix
             tenant_id = resource['tenant_id']
         elif ('tenant_id' in resource and
               resource['tenant_id'] != context['tenant_id']):
-            reason = _('Cannot create resource for another tenant')
+            reason = ('Cannot create resource for another tenant')
             db_handler.DBInterfaceV2._raise_contrail_exception('AdminRequired',
                                                                reason=reason)
         else:
@@ -488,7 +492,7 @@ class VMInterfaceCreateHandler(res_handler.ResourceCreateHandler, VMInterfaceMix
 
     def _validate_mac_address(self, project_id, net_id, mac_address):
         ports = self._vnc_lib.virtual_machine_interfaces_list(
-                parent_id=proj_id, back_ref_id=net_id, detail=True)
+            parent_id=project_id, back_ref_id=net_id, detail=True)
 
         for port in ports:
             macs = port.get_virtual_machine_interface_mac_addresses()
@@ -497,7 +501,7 @@ class VMInterfaceCreateHandler(res_handler.ResourceCreateHandler, VMInterfaceMix
                     raise db_handler.DBInterfaceV2._raise_contrail_exception(
                         "MacAddressInUse", net_id=net_id, mac=mac_address)
 
-    def _create_or_get_vmi_obj(self, port_q, vn_obj):
+    def _create_vmi_obj(self, port_q, vn_obj):
         project_id = str(uuid.UUID(port_q['tenant_id']))
         proj_obj = self._project_read(proj_id=project_id)
         id_perms = vnc_api.IdPermsType(enable=True)
@@ -517,39 +521,11 @@ class VMInterfaceCreateHandler(res_handler.ResourceCreateHandler, VMInterfaceMix
 
         vmi_obj.set_security_group_list([])
         if ('security_groups' not in port_q or
-            port_q['security_groups'].__class__ is object):
+                port_q['security_groups'].__class__ is object):
             sg_obj = vnc_api.SecurityGroup("default", proj_obj)
             vmi_obj.add_security_group(sg_obj)
 
         return vmi_obj
-
-    def _create_instance_ips(self, vn_obj, vmi_obj, fixed_ips, ip_family="v4"):
-        created_iip_ids = []
-        if fixed_ips is None:
-            return
-
-        ip_handler = res_handler.InstanceIpHandler(self._vnc_lib)
-        for fixed_ip in fixed_ips:
-            try:
-                ip_addr = fixed_ip.get('ip_address')
-                if ip_addr is not None:
-                    if netaddr.IPAddress(ip_addr).version == 4:
-                        ip_family="v4"
-                    elif netaddr.IPAddress(ip_addr).version == 6:
-                        ip_family="v6"
-                subnet_id = fixed_ip.get('subnet_id')
-                ip_id = ip_handler.create_instance_ip(vn_obj, vmi_obj, ip_addr,
-                                                      subnet_id, ip_family)
-                created_iip_ids.append(ip_id)
-            except vnc_exc.HttpError as e:
-                # Resources are not available
-                for iip_id in created_iip_ids:
-                    ip_handler._resource_delete(id=iip_id)
-                raise e
-
-        for iip in getattr(vmi_obj, 'instance_ip_back_refs', []):
-            if iip['uuid'] not in created_iip_ids:
-                ip_handler._resource_delete(id=iip['uuid'])
 
     def resource_create(self, **kwargs):
         context = kwargs.get('context')
@@ -559,17 +535,18 @@ class VMInterfaceCreateHandler(res_handler.ResourceCreateHandler, VMInterfaceMix
 
         net_id = port_q['network_id']
         vn_obj = self._vnc_lib.virtual_network_read(id=net_id)
-        tenant_id = self._get_tenant_id_for_create(context, port_q);
+        tenant_id = self._get_tenant_id_for_create(context, port_q)
         proj_id = str(uuid.UUID(tenant_id))
-    
+
         # if mac-address is specified, check against the exisitng ports
         # to see if there exists a port with the same mac-address
         if 'mac_address' in port_q:
             self._validate_mac_address(proj_id, port_q['mac_address'])
-    
+
         # initialize port object
-        vmi_obj = self._neutron_port_to_vmi(port_q, vn_obj)
-    
+        vmi_obj = self._create_vmi_obj(port_q, vn_obj)
+        vmi_obj = self._neutron_port_to_vmi(port_q, vmi_obj=vmi_obj)
+
         # determine creation of v4 and v6 ip object
         ip_obj_v4_create = False
         ip_obj_v6_create = False
@@ -577,13 +554,13 @@ class VMInterfaceCreateHandler(res_handler.ResourceCreateHandler, VMInterfaceMix
         for ipam_ref in ipam_refs:
             subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
             for subnet_vnc in subnet_vncs:
-                cidr = '%s/%s' %(subnet_vnc.subnet.get_ip_prefix(),
-                                 subnet_vnc.subnet.get_ip_prefix_len())
+                cidr = '%s/%s' % (subnet_vnc.subnet.get_ip_prefix(),
+                                  subnet_vnc.subnet.get_ip_prefix_len())
                 if (netaddr.IPNetwork(cidr).version == 4):
                     ip_obj_v4_create = True
                 if (netaddr.IPNetwork(cidr).version == 6):
                     ip_obj_v6_create = True
-    
+
         # create the object
         port_id = self._resource_create(vmi_obj)
         try:
@@ -601,26 +578,28 @@ class VMInterfaceCreateHandler(res_handler.ResourceCreateHandler, VMInterfaceMix
             # failure in creating the instance ip. Roll back
             self._resource_delete(port_id=port_id)
             db_handler.DBInterfaceV2._raise_contrail_exception(
-                'IpAddressGenerationFailure', net_id=net_obj.uuid)
-        # TODO below reads back default parent name, fix it
+                'IpAddressGenerationFailure', net_id=net_id)
+        # TODO() below reads back default parent name, fix it
         vmi_obj = self._resource_get(id=port_id)
         ret_port_q = self._vmi_to_neutron_port(vmi_obj)
-    
+
         # create interface route table for the port if
         # subnet has a host route for this port ip.
         if apply_subnet_host_routes:
             self._port_check_and_add_iface_route_table(ret_port_q['fixed_ips'],
                                                        vn_obj, vmi_obj)
-    
+
         return ret_port_q
 
 
-class VMInterfaceUpdateHandler(res_handler.ResourceUpdateHandler, VMInterfaceMixin):
+class VMInterfaceUpdateHandler(res_handler.ResourceUpdateHandler,
+                               VMInterfaceMixin):
     resource_update_method = 'virtual_machine_interface_update'
 
     def resource_update(self, **kwargs):
         port_id = kwargs.get('port_id')
         port_q = kwargs.get('port_q')
+        port_q['id'] = port_id
         vmi_obj = self._neutron_port_to_vmi(port_q)
         net_id = vmi_obj.get_virtual_network_refs()[0]['uuid']
         vn_obj = self._vnc_lib.virtual_network_read(id=net_id)
@@ -631,7 +610,7 @@ class VMInterfaceUpdateHandler(res_handler.ResourceUpdateHandler, VMInterfaceMix
                                           port_q.get('fixed_ips'))
         except vnc_exc.HttpError:
             db_handler.DBInterfaceV2._raise_contrail_exception(
-                'IpAddressGenerationFailure', net_id=net_obj.uuid)
+                'IpAddressGenerationFailure', net_id=net_id)
         vn_obj = self._resource_get(id=port_id)
         extensions_enabled = port_q.get('contrail_extension_enabled', True)
         ret_port_q = self._vmi_to_neutron_port(
@@ -640,7 +619,8 @@ class VMInterfaceUpdateHandler(res_handler.ResourceUpdateHandler, VMInterfaceMix
         return ret_port_q
 
 
-class VMInterfaceDeleteHandler(res_handler.ResourceDeleteHandler, VMInterfaceMixin):
+class VMInterfaceDeleteHandler(res_handler.ResourceDeleteHandler,
+                               VMInterfaceMixin):
     resource_delete_method = 'virtual_machine_interface_delete'
 
     def resource_delete(self, **kwargs):
@@ -657,7 +637,7 @@ class VMInterfaceDeleteHandler(res_handler.ResourceDeleteHandler, VMInterfaceMix
         if vmi_obj.get_logical_router_back_refs():
             db_handler.DBInterfaceV2._raise_contrail_exception(
                 'L3PortInUse', port_id=port_id,
-                device_owner=constants.DEVICE_OWNER_ROUTER_INTF)
+                device_owner=n_constants.DEVICE_OWNER_ROUTER_INTF)
 
         # release instance IP address
         iip_back_refs = getattr(vmi_obj, 'instance_ip_back_refs', None)
@@ -695,7 +675,7 @@ class VMInterfaceDeleteHandler(res_handler.ResourceDeleteHandler, VMInterfaceMix
         try:
             if instance_id:
                 self._vnc_lib.virtual_machine_delete(id=instance_id)
-        except RefsExistError:
+        except vnc_exc.RefsExistError:
             pass
 
 
@@ -705,13 +685,12 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
     back_ref_fields = ['logical_router_back_refs', 'instance_ip_back_refs',
                        'floating_ip_back_refs']
 
-
     # returns vm objects, net objects, and instance ip objects
     def _get_vmis_vms_nets_ips(self, context, project_ids=None,
-                               device_ids=None, vmi_objs=None):
+                               device_ids=None, vmi_objs=None, vmi_uuids=None):
         vn_list_handler = vn_handler.VNetworkGetHandler(self._vnc_lib)
         vm_list_handler = res_handler.VMachineHandler(self._vnc_lib)
-        
+
         vm_objs_gevent = gevent.spawn(vm_list_handler._resource_list,
                                       back_ref_id=device_ids, detail=True)
 
@@ -722,7 +701,8 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
         if not vmi_objs:
             vmi_objs_gevent = gevent.spawn(self._resource_list,
                                            parent_id=project_ids,
-                                           back_ref_id=device_ids)
+                                           back_ref_id=device_ids,
+                                           obj_uuids=vmi_uuids)
             gevents.append(vmi_objs_gevent)
 
         # if admin no need to filter we can retrieve all the ips object
@@ -743,24 +723,26 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
             net_ids = [net_obj.uuid for net_obj in net_objs]
             iip_list_handler = res_handler.InstanceIpHandler(self._vnc_lib)
             iips_objs = iip_list_handler._resource_list(back_ref_id=net_ids,
-                                                       detail=True)
+                                                        detail=True)
 
         if not vmi_objs:
             vmi_objs = vmi_objs_gevent.value
 
         return vmi_objs, vm_objs, net_objs, iips_objs
 
-     # get vmi related resources filtered by project_ids
+    # get vmi related resources filtered by project_ids
     def _get_vmi_resources(self, context, project_ids=None, ids=None,
                            device_ids=None):
         vmi_objs = None
         if not context['is_admin'] and not device_ids:
-            vmi_objs = self._resource_list(parent_id=project_ids)
+            vmi_objs = self._resource_list(parent_id=project_ids,
+                                           obj_uuids=ids)
             device_ids = self._device_ids_from_vmi_objs(vmi_objs)
 
         return self._get_vmis_vms_nets_ips(context, project_ids=project_ids,
                                            device_ids=device_ids,
-                                           vmi_objs=vmi_objs)
+                                           vmi_objs=vmi_objs,
+                                           vmi_uuids=ids)
 
     def _get_ports_dict(self, vmi_objs, memo_req, extensions_enabled=False):
         ret_ports = []
@@ -781,7 +763,6 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
 
         filters = kwargs.get('filters', {})
 
-        vmi_filter = {}
         project_ids = []
         if not context['is_admin']:
             project_ids = [str(uuid.UUID(context['tenant']))]
@@ -815,7 +796,7 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
                                                                 port['name']):
                 continue
             if not db_handler.DBInterfaceV2._filters_is_present(
-                filters, 'device_owner', port['device_owner']):
+                    filters, 'device_owner', port['device_owner']):
                 continue
             if 'fixed_ips' in filters and not self._port_fixed_ips_is_present(
                     filters['fixed_ips'], port['fixed_ips']):
@@ -833,7 +814,7 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
             db_handler.DBInterfaceV2._raise_contrail_exception('PortNotFound',
                                                                port_id=port_id)
 
-        extensions_enabled=kwargs.get('contrail_extensions_enabled', False)
+        extensions_enabled = kwargs.get('contrail_extensions_enabled', False)
         ret_port_q = self._vmi_to_neutron_port(
             vmi_obj, extensions_enabled=extensions_enabled)
 
@@ -845,7 +826,7 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
             return count
 
         if (filters.get('device_owner') == 'network:dhcp' or
-            'network:dhcp' in filters.get('device_owner', [])):
+                'network:dhcp' in filters.get('device_owner', [])):
             return 0
 
         if 'tenant_id' in filters:
@@ -856,11 +837,12 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
 
             nports = len(self._resource_list(parent_id=project_id))
         else:
-            # across all projects - TODO very expensive,
+            # across all projects - TODO() very expensive,
             # get only a count from api-server!
             nports = len(self.resource_list(filters=filters))
 
         return nports
+
 
 class VMInterfaceHandler(VMInterfaceGetHandler,
                          VMInterfaceCreateHandler,
