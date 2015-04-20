@@ -27,6 +27,8 @@ import router_res_handler as rtr_handler
 import subnet_res_handler as subnet_handler
 import vmi_res_handler as vmi_handler
 import vn_res_handler as vn_handler
+import sg_res_handler as sg_handler
+import sgrule_res_handler as sgrule_handler
 
 
 class DBInterfaceV2(DBInterface):
@@ -44,7 +46,7 @@ class DBInterfaceV2(DBInterface):
         bottle.abort(400, json.dumps(exc_info))
 
     @staticmethod
-    def _validate_project_ids(project_ids, context=None):
+    def _validate_project_ids(context, project_ids=None):
         if context and not context['is_admin']:
             return [context['tenant']]
 
@@ -226,3 +228,39 @@ class DBInterfaceV2(DBInterface):
         return handler.remove_router_interface(router_id=router_id,
                                                port_id=port_id,
                                                subnet_id=subnet_id)
+
+    def security_group_create(self, sg_q):
+        handler = sg_handler.SecurityGroupHandler(self._vnc_lib)
+        return handler.resource_create(sg_q=sg_q)
+
+    def security_group_read(self, sg_id):
+        handler = sg_handler.SecurityGroupHandler(self._vnc_lib)
+        return handler.resource_get(sg_id=sg_id)
+
+    def security_group_list(self, context, filters=None):
+        handler = sg_handler.SecurityGroupHandler(self._vnc_lib)
+        return handler.resource_list(context, filters=filters)
+
+    def security_group_delete(self, context, sg_id):
+        handler = sg_handler.SecurityGroupHandler(self._vnc_lib)
+        return handler.resource_delete(context, sg_id=sg_id)
+
+    def security_group_update(self, sg_id, sg_q):
+        handler = sg_handler.SecurityGroupHandler(self._vnc_lib)
+        return handler.resource_update(sg_id, sg_q)
+
+    def security_group_rule_read(self, context, sgr_id):
+        handler = sgrule_handler.SecurityGroupRuleHandler(self._vnc_lib)
+        return handler.resource_get(context, sgr_id)
+
+    def security_group_rule_list(self, context, filters=None):
+        handler = sgrule_handler.SecurityGroupRuleHandler(self._vnc_lib)
+        return handler.resource_list(context, filters)
+
+    def security_group_rule_delete(self, context, sg_rule):
+        handler = sgrule_handler.SecurityGroupRuleHandler(self._vnc_lib)
+        return handler.resource_delete(context, sgr_id=sg_rule)
+
+    def security_group_rule_create(self, sgr_q):
+        handler = sgrule_handler.SecurityGroupRuleHandler(self._vnc_lib)
+        return handler.resource_create(sgr_q)
