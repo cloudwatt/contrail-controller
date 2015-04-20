@@ -40,6 +40,16 @@ class ContrailResourceHandler(object):
     def res_obj_to_neutron_dict(self, res_obj):
         pass
 
+    def _project_read(self, proj_id=None, fq_name=None):
+        return self._vnc_lib.project_read(id=proj_id, fq_name=fq_name)
+
+    def _project_list_domain(self, domain_id):
+        # TODO till domain concept is not present in keystone
+        fq_name = ['default-domain']
+        resp_dict = self._vnc_lib.projects_list(parent_fq_name=fq_name)
+
+        return resp_dict['projects']
+
 
 class ResourceCreateHandler(ContrailResourceHandler):
     resource_create_method = None
@@ -139,9 +149,6 @@ class ResourceGetHandler(ContrailResourceHandler):
 
     def resource_list(self, **kwargs):
         pass
-
-    def _project_read(self, proj_id=None, fq_name=None):
-        return self._vnc_lib.project_read(id=proj_id, fq_name=fq_name)
 
 
 class ContrailProjectHandler(ResourceGetHandler):

@@ -528,9 +528,9 @@ class LogicalRouterInterfaceHandler(res_handler.ResourceGetHandler,
                                 'subnet_id': subnet_id,
                                 'cidr': cidr,
                                 'sub_id': sub_id}
-                        msg = (_("Cidr %(subnet_cidr)s of subnet "
-                                 "%(subnet_id)s overlaps with cidr %(cidr)s "
-                                 "of subnet %(sub_id)s") % data)
+                        msg = (("Cidr %(subnet_cidr)s of subnet "
+                                "%(subnet_id)s overlaps with cidr %(cidr)s "
+                                "of subnet %(sub_id)s") % data)
                         self._raise_contrail_exception(
                             'BadRequest', resource='router', msg=msg)
         except vnc_exc.NoIdError:
