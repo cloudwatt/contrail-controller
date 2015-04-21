@@ -357,7 +357,7 @@ class VMInterfaceMixin(object):
             elif len(cidr) == 2:
                 subnet = vnc_api.SubnetType(cidr[0], int(cidr[1]))
             else:
-                db_handler.DBHandlerV2._raise_contrail_exception(
+                self._raise_contrail_exception(
                     'BadRequest', resource='port',
                     msg='Invalid address pair argument')
 
@@ -586,8 +586,9 @@ class VMInterfaceCreateHandler(res_handler.ResourceCreateHandler,
         # create interface route table for the port if
         # subnet has a host route for this port ip.
         if apply_subnet_host_routes:
-            self._port_check_and_add_iface_route_table(ret_port_q['fixed_ips'],
-                                                       vn_obj, vmi_obj)
+            subnet_host_handler = SubnetHostRoutesHandler(self._vnc_lib)
+            subnet_host_handler.port_check_and_add_iface_route_table(
+                ret_port_q['fixed_ips'], vn_obj, vmi_obj)
 
         return ret_port_q
 
