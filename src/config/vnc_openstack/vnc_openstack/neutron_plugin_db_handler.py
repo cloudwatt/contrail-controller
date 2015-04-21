@@ -30,6 +30,7 @@ import vn_res_handler as vn_handler
 import sg_res_handler as sg_handler
 import sgrule_res_handler as sgrule_handler
 import ipam_res_handler as ipam_handler
+import policy_res_handler as policy_handler
 
 
 class DBInterfaceV2(DBInterface):
@@ -289,3 +290,27 @@ class DBInterfaceV2(DBInterface):
     def ipam_count(self, context, filters=None):
         handler = ipam_handler.IPamHandler(self._vnc_lib)
         return handler.resource_count(filters)
+
+    def policy_create(self, policy_q):
+        handler = policy_handler.PolicyHandler(self._vnc_lib)
+        return handler.resource_create(policy_q)
+
+    def policy_list(self, context=None, filters=None):
+        handler = policy_handler.PolicyHandler(self._vnc_lib)
+        return handler.resource_list(context, filters)
+
+    def policy_update(self, policy_id, policy):
+        handler = policy_handler.PolicyHandler(self._vnc_lib)
+        return handler.resource_update(policy_id, policy)
+
+    def policy_delete(self, policy_id):
+        handler = policy_handler.PolicyHandler(self._vnc_lib)
+        return handler.resource_delete(policy_id)
+
+    def policy_read(self, policy_id):
+        handler = policy_handler.PolicyHandler(self._vnc_lib)
+        return handler.resource_get(policy_id)
+
+    def policy_count(self, context=None, filters=None):
+        handler = policy_handler.PolicyHandler(self._vnc_lib)
+        return handler.resource_count(context, filters)
