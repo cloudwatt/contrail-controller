@@ -29,6 +29,7 @@ import vmi_res_handler as vmi_handler
 import vn_res_handler as vn_handler
 import sg_res_handler as sg_handler
 import sgrule_res_handler as sgrule_handler
+import ipam_res_handler as ipam_handler
 
 
 class DBInterfaceV2(DBInterface):
@@ -264,3 +265,27 @@ class DBInterfaceV2(DBInterface):
     def security_group_rule_create(self, sgr_q):
         handler = sgrule_handler.SecurityGroupRuleHandler(self._vnc_lib)
         return handler.resource_create(sgr_q)
+
+    def ipam_read(self, ipam_id):
+        handler = ipam_handler.IPamHandler(self._vnc_lib)
+        return handler.resource_get(ipam_id)
+
+    def ipam_create(self, ipam_q):
+        handler = ipam_handler.IPamHandler(self._vnc_lib)
+        return handler.resource_create(ipam_q)
+
+    def ipam_delete(self, ipam_id):
+        handler = ipam_handler.IPamHandler(self._vnc_lib)
+        return handler.resource_delete(ipam_id)
+
+    def ipam_list(self, context=None, filters=None):
+        handler = ipam_handler.IPamHandler(self._vnc_lib)
+        return handler.resource_list(context, filters)
+
+    def ipam_update(self, ipam_id, ipam_q):
+        handler = ipam_handler.IPamHandler(self._vnc_lib)
+        return handler.resource_update(ipam_id, ipam_q)
+
+    def ipam_count(self, context, filters=None):
+        handler = ipam_handler.IPamHandler(self._vnc_lib)
+        return handler.resource_count(filters)
