@@ -31,6 +31,7 @@ import sg_res_handler as sg_handler
 import sgrule_res_handler as sgrule_handler
 import ipam_res_handler as ipam_handler
 import policy_res_handler as policy_handler
+import svc_instance_res_handler as svc_instance_handler
 
 
 class DBInterfaceV2(DBInterface):
@@ -314,3 +315,19 @@ class DBInterfaceV2(DBInterface):
     def policy_count(self, context=None, filters=None):
         handler = policy_handler.PolicyHandler(self._vnc_lib)
         return handler.resource_count(context, filters)
+
+    def svc_instance_create(self, si_q):
+        handler = svc_instance_handler.SvcInstanceHandler(self._vnc_lib)
+        return handler.resource_create(si_q)
+
+    def svc_instance_read(self, si_id):
+        handler = svc_instance_handler.SvcInstanceHandler(self._vnc_lib)
+        return handler.resource_get(si_id)
+
+    def svc_instance_list(self, context, filters=None):
+        handler = svc_instance_handler.SvcInstanceHandler(self._vnc_lib)
+        return handler.resource_list(context, filters)
+
+    def svc_instance_delete(self, si_id):
+        handler = svc_instance_handler.SvcInstanceHandler(self._vnc_lib)
+        return handler.resource_delete(si_id)
