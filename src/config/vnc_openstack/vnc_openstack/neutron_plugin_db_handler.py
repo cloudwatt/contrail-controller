@@ -31,6 +31,7 @@ import sg_res_handler as sg_handler
 import sgrule_res_handler as sgrule_handler
 import ipam_res_handler as ipam_handler
 import policy_res_handler as policy_handler
+import route_table_res_handler as route_table_handler
 import svc_instance_res_handler as svc_instance_handler
 
 
@@ -331,3 +332,23 @@ class DBInterfaceV2(DBInterface):
     def svc_instance_delete(self, si_id):
         handler = svc_instance_handler.SvcInstanceHandler(self._vnc_lib)
         return handler.resource_delete(si_id)
+
+    def route_table_create(self, rt_q):
+        handler = route_table_handler.RouteTableHandler(self._vnc_lib)
+        return handler.resource_create(rt_q)
+
+    def route_table_read(self, rt_id):
+        handler = route_table_handler.RouteTableHandler(self._vnc_lib)
+        return handler.resource_get(rt_id)
+
+    def route_table_list(self, context, filters=None):
+        handler = route_table_handler.RouteTableHandler(self._vnc_lib)
+        return handler.resource_list(context, filters)
+
+    def route_table_update(self, rt_id, rt_q):
+        handler = route_table_handler.RouteTableHandler(self._vnc_lib)
+        return handler.resource_update(rt_id, rt_q)
+
+    def route_table_delete(self, rt_id):
+        handler = route_table_handler.RouteTableHandler(self._vnc_lib)
+        return handler.resource_delete(rt_id)
