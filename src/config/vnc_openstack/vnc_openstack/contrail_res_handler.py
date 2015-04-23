@@ -80,11 +80,7 @@ class ResourceDeleteHandler(ContrailResourceHandler):
 
     def _resource_delete(self, id=None, fq_name=None):
         delete_method = getattr(self._vnc_lib, self.resource_delete_method)
-        try:
-            delete_method(id=id, fq_name=fq_name)
-        except vnc_exc.NoIdError:
-            raise db_handler.DBInterfaceV2._raise_contrail_exception(
-                "ResourceNotFound", id=id, fq_name=fq_name)
+        delete_method(id=id, fq_name=fq_name)
 
     def resource_delete(self, **kwargs):
         pass
