@@ -173,7 +173,11 @@ class RouteTableDeleteHandler(res_handler.ResourceDeleteHandler):
     resource_delete_method = "route_table_delete"
 
     def resource_delete(self, rt_id):
-        self._resource_delete(rt_id)
+        try:
+            self._resource_delete(rt_id)
+        except vnc_exc.NoIdError:
+            raise db_handler.DBInterfaceV2._raise_contrail_exception(
+                "ResourceNotFound", id=rt_id)
 
 
 class RouteTableHandler(RouteTableGetHandler,
