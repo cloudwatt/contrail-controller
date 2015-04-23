@@ -18,7 +18,6 @@ from pysandesh.sandesh_logger import *
 from vnc_api import vnc_api
 from cfgm_common.utils import CacheContainer
 import neutron_plugin_db_handler
-# from neutron_plugin_db_handler import DBInterface
 
 @bottle.error(400)
 def error_400(err):
