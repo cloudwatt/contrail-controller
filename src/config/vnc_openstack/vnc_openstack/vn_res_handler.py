@@ -264,14 +264,12 @@ class VNetworkUpdateHandler(res_handler.ResourceUpdateHandler, VNetworkMixin):
         if router_external and not vn_obj.router_external:
             fip_pool_obj = vnc_api.FloatingIpPool('floating-ip-pool',
                                                   vn_obj)
-            res_handler.FloatingIpPoolHandler(self._vnc_lib)._resource_create(
-                fip_pool_obj)
+            self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
         else:
             fip_pools = vn_obj.get_floating_ip_pools()
             for fip_pool in fip_pools or []:
                 try:
-                    (res_handler.FloatingIpPoolHandler(
-                        self._vnc_lib)._resource_delete(id=fip_pool['uuid']))
+                    self._vnc_lib.floating_ip_pool_delete(id=fip_pool['uuid'])
                 except vnc_api.RefsExistError:
                     db_handler.DBInterfaceV2._raise_contrail_exception(
                         'NetworkInUse', net_id=vn_obj.uuid)

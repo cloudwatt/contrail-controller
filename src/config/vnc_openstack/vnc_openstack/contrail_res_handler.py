@@ -34,12 +34,6 @@ class ContrailResourceHandler(object):
     def _raise_contrail_exception(exc, **kwargs):
         db_handler.DBInterfaceV2._raise_contrail_exception(exc, **kwargs)
 
-    def neutron_dict_to_res_obj(self, res_q):
-        pass
-
-    def res_obj_to_neutron_dict(self, res_obj):
-        pass
-
     def _project_read(self, proj_id=None, fq_name=None):
         return self._vnc_lib.project_read(id=proj_id, fq_name=fq_name)
 
@@ -68,12 +62,6 @@ class ResourceCreateHandler(ContrailResourceHandler):
                 'BadRequest', msg=str(e))
         return obj_uuid
 
-    def validate_input(self, res_q):
-        pass
-
-    def resource_create(self, **kwargs):
-        pass
-
 
 class ResourceDeleteHandler(ContrailResourceHandler):
     resource_delete_method = None
@@ -82,18 +70,12 @@ class ResourceDeleteHandler(ContrailResourceHandler):
         delete_method = getattr(self._vnc_lib, self.resource_delete_method)
         delete_method(id=id, fq_name=fq_name)
 
-    def resource_delete(self, **kwargs):
-        pass
-
 
 class ResourceUpdateHandler(ContrailResourceHandler):
     resource_update_method = None
 
     def _resource_update(self, obj):
         getattr(self._vnc_lib, self.resource_update_method)(obj)
-
-    def resource_update(self, **kwargs):
-        pass
 
 
 class ResourceGetHandler(ContrailResourceHandler):
@@ -133,31 +115,16 @@ class ResourceGetHandler(ContrailResourceHandler):
         json_resource = json_resource.replace('-list', '')
         if self.resource_list_method == "floating_ips_list":
             count = lambda pid: self._resource_list(
-                back_ref_id=pid, count=True,
+                back_ref_id=pid, count=True, back_refs=False,
                 detail=False)[json_resource]['count']
         else:
             count = lambda pid: self._resource_list(
-                parent_id=pid, count=True,
+                parent_id=pid, count=True, back_refs=False,
                 detail=False)[json_resource]['count']
 
         ret = [count(pid) for pid in project_ids] if project_ids \
             else [count(None)]
         return sum(ret)
-
-    def resource_get(self, **kwargs):
-        pass
-
-    def resource_list(self, **kwargs):
-        pass
-
-
-class ContrailProjectHandler(ResourceGetHandler):
-    resource_get_method = 'virtual_project_read'
-
-
-class FloatingIpPoolHandler(ResourceCreateHandler, ResourceDeleteHandler):
-    resource_create_method = 'floating_ip_pool_create'
-    resource_create_method = 'floating_ip_pool_delete'
 
 
 class VMachineHandler(ResourceGetHandler, ResourceCreateHandler,
