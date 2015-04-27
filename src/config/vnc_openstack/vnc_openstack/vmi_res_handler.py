@@ -177,6 +177,27 @@ class VMInterfaceMixin(object):
                     device_ids.append(lg_back_ref[0]['uuid'])
         return device_ids
 
+    def _get_vmi_device_id_owner(self, vmi_obj, port_req_memo):
+        # port can be router interface or vm interface
+        # for perf read logical_router_back_ref only when we have to
+        device_id = ''
+        device_owner = None
+
+        router_refs = getattr(vmi_obj, 'logical_router_back_refs', None)
+        if router_refs is not None:
+            device_id = router_refs[0]['uuid']
+        elif vmi_obj.parent_type == 'virtual-machine':
+            device_id = vmi_obj.parent_name
+        elif vmi_obj.get_virtual_machine_refs() is not None:
+            rtr_uuid = self.get_port_gw_id(vmi_obj, port_req_memo)
+            if rtr_uuid:
+                device_id = rtr_uuid
+                device_owner = n_constants.DEVICE_OWNER_ROUTER_GW
+            else:
+                device_id = vmi_obj.get_virtual_machine_refs()[0]['to'][-1]
+                device_owner = ''
+        return device_id, device_owner
+
     def _vmi_to_neutron_port(self, vmi_obj, port_req_memo=None,
                              extensions_enabled=False):
         port_q_dict = {}
@@ -247,27 +268,12 @@ class VMInterfaceMixin(object):
 
         port_q_dict['admin_state_up'] = vmi_obj.get_id_perms().enable
 
-        # port can be router interface or vm interface
-        # for perf read logical_router_back_ref only when we have to
-        router_refs = getattr(vmi_obj, 'logical_router_back_refs', None)
-        if router_refs is not None:
-            port_q_dict['device_id'] = router_refs[0]['uuid']
-        elif vmi_obj.parent_type == 'virtual-machine':
-            port_q_dict['device_id'] = vmi_obj.parent_name
-        elif vmi_obj.get_virtual_machine_refs() is not None:
-            rtr_uuid = self.get_port_gw_id(vmi_obj, port_req_memo)
-            if rtr_uuid:
-                port_q_dict['device_id'] = rtr_uuid
-                port_q_dict['device_owner'] = (
-                    n_constants.DEVICE_OWNER_ROUTER_GW)
-            else:
-                port_q_dict['device_id'] = (
-                    vmi_obj.get_virtual_machine_refs()[0]['to'][-1])
-                port_q_dict['device_owner'] = ''
-        else:
-            port_q_dict['device_id'] = ''
+        device_id, device_owner = self._get_vmi_device_id_owner(vmi_obj)
+        port_q_dict['device_id'] =  device_id
 
-        if not port_q_dict.get('device_owner'):
+        if device_owner is not None:
+            port_q_dict['device_owner'] = device_owner
+        else:    
             port_q_dict['device_owner'] = (
                 vmi_obj.get_virtual_machine_interface_device_owner() or '')
 
