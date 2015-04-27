@@ -119,6 +119,10 @@ class PolicyCreateHandler(res_handler.ResourceCreateHandler, PolicyMixin):
     resource_create_method = "network_policy_create"
 
     def resource_create(self, policy_q):
+        if 'tenant_id' not in policy_q:
+            raise db_handler.DBInterfaceV2._raise_contrail_exception(
+                'BadRequest', resource='policy',
+                msg="'tenant_id' is mandatory")
         project_id = str(uuid.UUID(policy_q['tenant_id']))
         policy_name = policy_q.get('name', None)
         project_obj = self._project_read(proj_id=project_id)
