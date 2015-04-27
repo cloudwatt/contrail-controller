@@ -268,7 +268,8 @@ class VMInterfaceMixin(object):
 
         port_q_dict['admin_state_up'] = vmi_obj.get_id_perms().enable
 
-        device_id, device_owner = self._get_vmi_device_id_owner(vmi_obj)
+        device_id, device_owner = self._get_vmi_device_id_owner(vmi_obj,
+                                                                port_req_memo)
         port_q_dict['device_id'] =  device_id
 
         if device_owner is not None:
