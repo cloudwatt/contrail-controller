@@ -68,11 +68,7 @@ class PolicyGetHandler(PolicyBaseGet, PolicyMixin):
         return self._policy_vnc_to_neutron(policy_obj)
 
     def resource_list_by_project(self, project_id):
-        try:
-            project_uuid = str(uuid.UUID(project_id))
-        except Exception:
-            print "Error in converting uuid %s" % (project_id)
-
+        project_uuid = str(uuid.UUID(project_id))
         resp_dict = self._resource_list(parent_id=project_uuid)
 
         return resp_dict['network-policys']

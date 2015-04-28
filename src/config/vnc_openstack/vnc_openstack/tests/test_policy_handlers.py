@@ -82,9 +82,14 @@ class TestPolicyHandlers(test_common.TestBase):
 
         # with admin context
         inp['context']['is_admin'] = True
+        inp['filters']['tenant_id'].append('28349234')  # invalid uuid
         exp_output = [
             {'fq_name': ['default-domain', 'proj-1', 'policy-1']},
             {'fq_name': ['default-domain', 'proj-2', 'policy-2']}]
+        self._test_check_list([{'input': inp, 'output': exp_output}])
+
+        # without filters
+        inp['filters'] = None
         self._test_check_list([{'input': inp, 'output': exp_output}])
 
         # with no context
