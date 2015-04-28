@@ -1,7 +1,6 @@
 import unittest
 import uuid
 import bottle
-from cfgm_common import exceptions as vnc_exc
 from vnc_api import vnc_api
 from vnc_openstack.tests.vnc_mock import MockVnc
 
@@ -72,7 +71,7 @@ class TestBase(unittest.TestCase):
         for entry in test_entries:
             if type(entry['output']) == type and \
                     issubclass(entry['output'], Exception):
-                with assertRaises(entry['output']):
+                with self.assertRaises(entry['output']):
                     _handler_method(entry['input'])
             else:
                 ret = _handler_method(entry['input'])

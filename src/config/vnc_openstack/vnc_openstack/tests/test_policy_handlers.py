@@ -24,26 +24,26 @@ class TestPolicyHandlers(test_common.TestBase):
             {'input': {'tenant_id': self._uuid_to_str(self.proj_obj.uuid),
                        'name': 'test-policy-2',
                        'entries': {
+                           'policy_rule': [{
+                               "protocol": "icmp",
+                               "direction": ">",
+                               "ethertype": "IPv4"}]}},
+             'output': {'id': self._generated(),
+                        'entries': {
                             'policy_rule': [{
                                 "protocol": "icmp",
                                 "direction": ">",
-                                "ethertype": "IPv4"}]}},
-             'output': {'id': self._generated(),
-                        'entries': {
-                                'policy_rule': [{
-                                    "protocol": "icmp",
-                                    "direction": ">",
-                                    "ethertype": "IPv4"}]},
+                                "ethertype": "IPv4"}]},
                         'fq_name': ['default-domain',
                                     'default-project',
                                     'test-policy-2']}})
         self._test_check_create(entries)
 
         count_entries = [{'input': {
-                'context': {
-                        'tenant_id': self._uuid_to_str(self.proj_obj.uuid)},
-                'filters': None},
-                          'output': 2}]
+            'context': {
+                'tenant_id': self._uuid_to_str(self.proj_obj.uuid)},
+            'filters': None},
+            'output': 2}]
         self._test_check_count(count_entries)
 
     def _create_policys_in_projects(self, proj_1, proj_2):
@@ -65,26 +65,26 @@ class TestPolicyHandlers(test_common.TestBase):
 
         # with proj-1 tenant and non-admin context
         inp = {
-                'context': {'tenant': self._uuid_to_str(proj_1.uuid),
-                            'is_admin': False},
-                'filters': {
-                        'tenant_id': [self._uuid_to_str(proj_1.uuid),
-                                      self._uuid_to_str(proj_2.uuid)]}}
+            'context': {'tenant': self._uuid_to_str(proj_1.uuid),
+                        'is_admin': False},
+            'filters': {
+                'tenant_id': [self._uuid_to_str(proj_1.uuid),
+                              self._uuid_to_str(proj_2.uuid)]}}
         exp_output = [
-                    {'fq_name': ['default-domain', 'proj-1', 'policy-1']}]
+            {'fq_name': ['default-domain', 'proj-1', 'policy-1']}]
         self._test_check_list([{'input': inp, 'output': exp_output}])
 
         # with proj-2 tenant and non-admin context
         inp['context']['tenant'] = self._uuid_to_str(proj_2.uuid)
         exp_output = [
-                    {'fq_name': ['default-domain', 'proj-2', 'policy-2']}]
+            {'fq_name': ['default-domain', 'proj-2', 'policy-2']}]
         self._test_check_list([{'input': inp, 'output': exp_output}])
 
         # with admin context
         inp['context']['is_admin'] = True
         exp_output = [
-                    {'fq_name': ['default-domain', 'proj-1', 'policy-1']},
-                    {'fq_name': ['default-domain', 'proj-2', 'policy-2']}]
+            {'fq_name': ['default-domain', 'proj-1', 'policy-1']},
+            {'fq_name': ['default-domain', 'proj-2', 'policy-2']}]
         self._test_check_list([{'input': inp, 'output': exp_output}])
 
         # with no context
@@ -101,8 +101,8 @@ class TestPolicyHandlers(test_common.TestBase):
         self._test_check_count([
             {'input': {'context': None,
                        'filters': {
-                            'tenant_id': [self._uuid_to_str(proj_1.uuid),
-                                          self._uuid_to_str(proj_2.uuid)]}},
+                           'tenant_id': [self._uuid_to_str(proj_1.uuid),
+                                         self._uuid_to_str(proj_2.uuid)]}},
              'output': 0}])
 
         self._create_policys_in_projects(proj_1, proj_2)
@@ -111,15 +111,15 @@ class TestPolicyHandlers(test_common.TestBase):
         self._test_check_count([
             {'input': {'context': None,
                        'filters': {
-                            'tenant_id': [self._uuid_to_str(proj_1.uuid),
-                                          self._uuid_to_str(proj_2.uuid)]}},
+                           'tenant_id': [self._uuid_to_str(proj_1.uuid),
+                                         self._uuid_to_str(proj_2.uuid)]}},
              'output': 2}])
 
         # count for one project filter
         self._test_check_count([
             {'input': {'context': None,
                        'filters': {
-                            'tenant_id': [self._uuid_to_str(proj_2.uuid)]}},
+                           'tenant_id': [self._uuid_to_str(proj_2.uuid)]}},
              'output': 1}])
 
     def test_get(self):
@@ -158,10 +158,10 @@ class TestPolicyHandlers(test_common.TestBase):
         _q = {'tenant_id': self._uuid_to_str(self.proj_obj.uuid),
               'name': 'test-policy-2',
               'entries': {
-                   'policy_rule': [{
-                       "protocol": "icmp",
-                       "direction": ">",
-                       "ethertype": "IPv4"}]}}
+                  'policy_rule': [{
+                      "protocol": "icmp",
+                      "direction": ">",
+                      "ethertype": "IPv4"}]}}
         self._handler.resource_update(policy_uuid, _q)
 
         # check if the rule is updated or not
@@ -172,10 +172,10 @@ class TestPolicyHandlers(test_common.TestBase):
                                     'test-policy'],
                         'name': 'test-policy',
                         'entries': {
-                             'policy_rule': [{
-                                 "protocol": "icmp",
-                                 "direction": ">",
-                                 "ethertype": "IPv4"}]},
+                            'policy_rule': [{
+                                "protocol": "icmp",
+                                "direction": ">",
+                                "ethertype": "IPv4"}]},
                         'id': str(policy_uuid)}}]
         self._test_check_get(entries)
 
@@ -188,10 +188,11 @@ class TestPolicyHandlers(test_common.TestBase):
         self._create_policys_in_projects(proj_1, proj_2)
 
         # count for both project filters
-        entry = {'input': {'context': None,
-                   'filters': {
-                        'tenant_id': [self._uuid_to_str(proj_1.uuid),
-                                      self._uuid_to_str(proj_2.uuid)]}},
+        entry = {'input': {
+            'context': None,
+            'filters': {
+                'tenant_id': [self._uuid_to_str(proj_1.uuid),
+                              self._uuid_to_str(proj_2.uuid)]}},
                  'output': 2}
         self._test_check_count([entry])
 

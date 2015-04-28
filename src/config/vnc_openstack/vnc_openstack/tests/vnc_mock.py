@@ -25,8 +25,8 @@ class MockVnc(object):
             if 'fq_name_str' in kwargs or \
                ('fq_name' in kwargs and kwargs['fq_name']):
                 fq_name_str = kwargs['fq_name_str'] \
-                              if 'fq_name_str' in kwargs else \
-                              ':'.join(kwargs['fq_name'])
+                    if 'fq_name_str' in kwargs else \
+                    ':'.join(kwargs['fq_name'])
                 if fq_name_str in self._resource:
                     return self._resource[fq_name_str]
 
