@@ -122,8 +122,8 @@ class ResourceGetHandler(ContrailResourceHandler):
                 parent_id=pid, count=True, back_refs=False,
                 detail=False)[json_resource]['count']
 
-        ret = [count(pid) for pid in project_ids] if project_ids \
-            else [count(None)]
+        ret = [count(str(uuid.UUID(pid)) if pid else None)
+               for pid in project_ids] if project_ids else [count(None)]
         return sum(ret)
 
 
