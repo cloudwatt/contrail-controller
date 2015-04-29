@@ -318,8 +318,7 @@ class SubnetCreateHandler(res_handler.ResourceCreateHandler, SubnetMixin):
                 netipam_obj = vnc_api.NetworkIpam()
             return netipam_obj
 
-    def resource_create(self, **kwargs):
-        subnet_q = kwargs.get('subnet_q')
+    def resource_create(self, subnet_q):
         net_id = subnet_q['network_id']
         vn_obj = self._resource_get(id=net_id)
         ipam_fq_name = subnet_q.get('contrail:ipam_fq_name')

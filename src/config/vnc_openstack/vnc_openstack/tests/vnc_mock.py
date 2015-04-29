@@ -1,11 +1,13 @@
 from cfgm_common import exceptions as vnc_exc
 import json
 import uuid as UUID
+from vnc_api import vnc_api
 
 
 class MockVnc(object):
     def __init__(self):
         self.resources_collection = dict()
+        self._kv_dict = dict()
 
     def _break_method(self, method):
         rin = method.rindex('_')
@@ -66,14 +68,13 @@ class MockVnc(object):
                 sret = []
                 for res in ret:
                     sret.append(res.serialize_to_json())
-                ret = sret
-            return {ret_resource_name: ret}
+                return {ret_resource_name: sret}
+            return ret
 
     class CreateCallables(Callables):
         def __call__(self, obj):
             if not obj:
                 raise ValueError("Create called with null object")
-
             uuid = getattr(obj, 'uuid', None)
             if not uuid:
                 uuid = obj.uuid = str(UUID.uuid4())
@@ -92,6 +93,36 @@ class MockVnc(object):
 
             self._resource[uuid] = obj
 
+            def update_back_ref(ref_name, refs,
+                                back_ref_name, back_ref_obj):
+                _ref_name = ref_name[:-5]
+                for ref in refs:
+                    ref_uuid = ref['uuid']
+                    ref_fq_name = ref['to']
+                    if _ref_name not in self._resource_collection or \
+                        ref_uuid not in self._resource_collection[_ref_name]:
+                        # TODO: Implement if needed
+                        print " -- Unable to locate %s resource with uuid %s" % (
+                            _ref_name, ref_uuid)
+                    else:
+                        ref_obj = self._resource_collection[_ref_name][ref_uuid]
+                        back_ref = {'uuid': back_ref_obj.uuid}
+                        back_ref_name = "%s_back_refs" % back_ref_name.replace("-", "_")
+                        if hasattr(ref_obj, back_ref_name):
+                            getattr(ref_obj, back_ref_name).append(back_ref)
+                        else:
+                            setattr(ref_obj, back_ref_name, [back_ref])
+
+            for field in obj._pending_field_updates:
+                if field.endswith("_refs"):
+                    for r in getattr(obj, field):
+                        if 'uuid' not in r:
+                            r['uuid'] = str(UUID.uuid4())
+                    update_back_ref(field, getattr(obj, field),
+                                    self._resource_type, obj)
+
+            self._pending_ref_updates = self._pending_field_updates = []
+
             if fq_name_str:
                 if fq_name_str in self._resource:
                     raise vnc_exc.RefsExistError(
@@ -99,6 +130,21 @@ class MockVnc(object):
                         "a different name" % fq_name_str)
 
                 self._resource[fq_name_str] = obj
+
+            if self._resource_type == 'virtual-machine-interface':
+                # generate a dummy mac address
+                def random_mac():
+                    import random
+                    mac = [0x00, 0x00, 0x00]
+                    for i in range(3,6):
+                        mac.append(random.randint(0x00, 0x7f))
+
+                    return ":".join(map(lambda x: "%02x" % x, mac))
+                if not obj.get_virtual_machine_interface_mac_addresses():
+                    obj.set_virtual_machine_interface_mac_addresses(
+                        vnc_api.MacAddressesType([random_mac()]))
+
+            return uuid
 
     class UpdateCallables(Callables):
         def __call__(self, obj):
@@ -109,16 +155,16 @@ class MockVnc(object):
 
             if obj._pending_ref_updates:
                 for ref in obj._pending_ref_updates:
-                    if ref.endswith("_refs"):
-                        ref = ref[:-5].replace('_', '-')
-                    obj_ref = cur_obj.getattr(ref)
-
-                    obj_ref.append(getattr(obj, ref))
+                    #if ref.endswith("_refs"):
+                    #    ref = ref.replace('_', '-')
+                    cur_obj_ref = getattr(cur_obj, ref)
+                    obj_ref = getattr(obj, ref)
+                    cur_obj_ref += obj_ref
 
             if obj._pending_field_updates:
                 for ref in obj._pending_field_updates:
-                    if ref.endswith("_refs"):
-                        ref = ref[:-5].replace('_', '-')
+                    #if ref.endswith("_refs"):
+                    #    ref = ref[:-5].replace('_', '-')
                     setattr(cur_obj, ref, getattr(obj, ref))
 
     class DeleteCallables(Callables):
@@ -173,3 +219,12 @@ class MockVnc(object):
 
     def obj_to_dict(self, obj):
         return json.loads(self.obj_to_json(obj))
+
+    def kv_store(self, key, value):
+        self._kv_dict[key] = value
+
+    def kv_retrieve(self, key):
+        return self._kv_dict[key]
+
+    def kv_delete(self, key):
+        return self._kv_dict.pop(key, None)
