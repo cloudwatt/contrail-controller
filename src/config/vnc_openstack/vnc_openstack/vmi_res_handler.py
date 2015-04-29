@@ -43,15 +43,15 @@ class VMInterfaceMixin(object):
                     'virtual-machines': {},
                     'instance-ips': {}}
 
-        for vn_obj in vn_objs:
+        for vn_obj in vn_objs or []:
             memo_req['networks'][vn_obj.uuid] = vn_obj
             memo_req['subnets'][vn_obj.uuid] = (
                 subnet_handler.SubnetHandler.get_vn_subnets(vn_obj))
 
-        for iip_obj in iip_objs:
+        for iip_obj in iip_objs or []:
             memo_req['instance-ips'][iip_obj.uuid] = iip_obj
 
-        for vm_obj in vm_objs:
+        for vm_obj in vm_objs or []:
             memo_req['virtual-machines'][vm_obj.uuid] = vm_obj
 
         return memo_req
@@ -132,12 +132,30 @@ class VMInterfaceMixin(object):
         if net_refs:
             return net_refs[0]['uuid']
 
-    def get_port_gw_id(self, vmi_obj, port_req_memo):
-        vm_refs = vmi_obj.get_virtual_machine_refs()
-        if not vm_refs:
-            return
+    def _extract_gw_id_from_vm_fq_name(self, vm_fq_name_str):
+        """Extract the gateway id from vm fq name.
 
-        vm_uuid = vm_refs[0]['uuid']
+        Eg.
+        vm fq name will be of the format :
+        "default-domain__demo__si_2d192e48-db2b-4978-8ee3-0454a0fa691d__1..."
+
+        Extract '2d192e48-db2b-4978-8ee3-0454a0fa691d' and return it
+        """
+        try:
+            gw_id = vm_fq_name_str.split('si_')
+            return gw_id[1].split('__')[0]
+        except Exception:
+            # any exception return None
+            return None
+
+    def get_port_gw_id(self, vm_ref, port_req_memo):
+        # try to extract the gw id from the vm fq_name.
+        # read the vm and si object only if necessary
+        gw_id = self._extract_gw_id_from_vm_fq_name(vm_ref['to'][-1])
+        if gw_id:
+            return gw_id
+
+        vm_uuid = vm_ref['uuid']
         vm_obj = None
         vm_obj = port_req_memo['virtual-machines'].get(vm_uuid)
 
@@ -164,22 +182,9 @@ class VMInterfaceMixin(object):
         if rtr_back_refs:
             return rtr_back_refs[0]['uuid']
 
-    @staticmethod
-    def _device_ids_from_vmi_objs(vmi_objs):
-        device_ids = []
-        for vmi_obj in vmi_objs:
-            vm_ref = vmi_obj.get_virtual_machine_refs()
-            if vm_ref:
-                device_ids.append(vm_ref[0]['uuid'])
-            else:
-                lg_back_ref = vmi_obj.get_logical_router_back_refs()
-                if lg_back_ref:
-                    device_ids.append(lg_back_ref[0]['uuid'])
-        return device_ids
-
     def _get_vmi_device_id_owner(self, vmi_obj, port_req_memo):
         # port can be router interface or vm interface
-        # for perf read logical_router_back_ref only when we have to
+        # for performance read logical_router_back_ref only when we have to
         device_id = ''
         device_owner = None
 
@@ -189,13 +194,17 @@ class VMInterfaceMixin(object):
         elif vmi_obj.parent_type == 'virtual-machine':
             device_id = vmi_obj.parent_name
         elif vmi_obj.get_virtual_machine_refs() is not None:
-            rtr_uuid = self.get_port_gw_id(vmi_obj, port_req_memo)
-            if rtr_uuid:
-                device_id = rtr_uuid
-                device_owner = n_constants.DEVICE_OWNER_ROUTER_GW
-            else:
-                device_id = vmi_obj.get_virtual_machine_refs()[0]['to'][-1]
+            vm_ref = vmi_obj.get_virtual_machine_refs()[0]
+            if vm_ref['to'][-1] == vm_ref['uuid']:
+                device_id = vm_ref['to'][-1]
                 device_owner = ''
+            else:
+                # this is a router gw port. Get the router id
+                rtr_uuid = self.get_port_gw_id(vm_ref, port_req_memo)
+                if rtr_uuid:
+                    device_id = rtr_uuid
+                    device_owner = n_constants.DEVICE_OWNER_ROUTER_GW
+
         return device_id, device_owner
 
     def _vmi_to_neutron_port(self, vmi_obj, port_req_memo=None,
@@ -270,11 +279,11 @@ class VMInterfaceMixin(object):
 
         device_id, device_owner = self._get_vmi_device_id_owner(vmi_obj,
                                                                 port_req_memo)
-        port_q_dict['device_id'] =  device_id
+        port_q_dict['device_id'] = device_id
 
         if device_owner is not None:
             port_q_dict['device_owner'] = device_owner
-        else:    
+        else:
             port_q_dict['device_owner'] = (
                 vmi_obj.get_virtual_machine_interface_device_owner() or '')
 
@@ -326,7 +335,7 @@ class VMInterfaceMixin(object):
     def _set_vmi_security_groups(self, vmi_obj, sec_group_list):
         vmi_obj.set_security_group_list([])
         for sg_id in sec_group_list or []:
-            # TODO optimize to not read sg (only uuid/fqn needed)
+            # TODO() optimize to not read sg (only uuid/fqn needed)
             sg_obj = self._vnc_lib.security_group_read(id=sg_id)
             vmi_obj.add_security_group(sg_obj)
 
@@ -593,7 +602,8 @@ class VMInterfaceCreateHandler(res_handler.ResourceCreateHandler,
         # create interface route table for the port if
         # subnet has a host route for this port ip.
         if apply_subnet_host_routes:
-            subnet_host_handler = SubnetHostRoutesHandler(self._vnc_lib)
+            subnet_host_handler = subnet_handler.SubnetHostRoutesHandler(
+                self._vnc_lib)
             subnet_host_handler.port_check_and_add_iface_route_table(
                 ret_port_q['fixed_ips'], vn_obj, vmi_obj)
 
@@ -694,23 +704,34 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
                        'floating_ip_back_refs']
 
     # returns vm objects, net objects, and instance ip objects
-    def _get_vmis_vms_nets_ips(self, context, project_ids=None,
-                               device_ids=None, vmi_objs=None, vmi_uuids=None):
+    def _get_vmis_nets_ips(self, context, project_ids=None,
+                           device_ids=None, vmi_uuids=None, vn_ids=None):
         vn_list_handler = vn_handler.VNetworkGetHandler(self._vnc_lib)
-        vm_list_handler = res_handler.VMachineHandler(self._vnc_lib)
+        vn_objs_gevent = gevent.spawn(vn_list_handler._resource_list,
+                                      parent_id=project_ids, detail=True)
+        gevents = [vn_objs_gevent]
 
-        vm_objs_gevent = gevent.spawn(vm_list_handler._resource_list,
-                                      back_ref_id=device_ids, detail=True)
+        vmi_objs_gevent = None
+        vmi_obj_uuids_gevent = None
+        back_ref_id = []
+        if device_ids:
+            back_ref_id = device_ids
 
-        net_objs_gevent = gevent.spawn(vn_list_handler._resource_list,
-                                       parent_id=project_ids, detail=True)
-        gevents = [vm_objs_gevent, net_objs_gevent]
+        if vn_ids:
+            back_ref_id.extend(vn_ids)
 
-        if not vmi_objs:
+        if back_ref_id:
             vmi_objs_gevent = gevent.spawn(self._resource_list,
-                                           parent_id=project_ids,
-                                           back_ref_id=device_ids,
-                                           obj_uuids=vmi_uuids)
+                                           back_ref_id=back_ref_id)
+            gevents.append(vmi_objs_gevent)
+
+        if vmi_uuids:
+            vmi_obj_uuids_gevent = gevent.spawn(self._resource_list,
+                                                obj_uuids=vmi_uuids)
+            gevents.append(vmi_obj_uuids_gevent)
+        elif not back_ref_id:
+            vmi_objs_gevent = gevent.spawn(self._resource_list,
+                                           parent_id=project_ids)
             gevents.append(vmi_objs_gevent)
 
         # if admin no need to filter we can retrieve all the ips object
@@ -723,38 +744,44 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
 
         gevent.joinall(gevents)
 
-        vm_objs = vm_objs_gevent.value
-        net_objs = net_objs_gevent.value
+        vn_objs = vn_objs_gevent.value
         if context['is_admin']:
             iips_objs = iip_objs_gevent.value
         else:
-            net_ids = [net_obj.uuid for net_obj in net_objs]
+            vn_ids = [vn_obj.uuid for vn_obj in vn_objs]
             iip_list_handler = res_handler.InstanceIpHandler(self._vnc_lib)
-            iips_objs = iip_list_handler._resource_list(back_ref_id=net_ids,
+            iips_objs = iip_list_handler._resource_list(back_ref_id=vn_ids,
                                                         detail=True)
 
-        if not vmi_objs:
+        vmi_objs = []
+        if vmi_objs_gevent is not None:
             vmi_objs = vmi_objs_gevent.value
 
-        return vmi_objs, vm_objs, net_objs, iips_objs
+        if vmi_obj_uuids_gevent is not None:
+            vmi_objs.extend(vmi_obj_uuids_gevent.value)
+
+        return vmi_objs, vn_objs, iips_objs
 
     # get vmi related resources filtered by project_ids
     def _get_vmi_resources(self, context, project_ids=None, ids=None,
-                           device_ids=None):
-        vmi_objs = None
-        if not context['is_admin'] and not device_ids:
-            vmi_objs = self._resource_list(parent_id=project_ids,
-                                           obj_uuids=ids)
-            device_ids = self._device_ids_from_vmi_objs(vmi_objs)
+                           device_ids=None, vn_ids=None):
+        if device_ids:
+            rtr_objs = self._vnc_lib.logical_routers_list(obj_uuids=device_ids,
+                                                          detail=True)
+            if not ids:
+                ids = []
+            for rtr_obj in rtr_objs or []:
+                intfs = rtr_obj.get_virtual_machine_interface_refs()
+                for intf in intfs or []:
+                    ids.append(intf['uuid'])
 
-        return self._get_vmis_vms_nets_ips(context, project_ids=project_ids,
-                                           device_ids=device_ids,
-                                           vmi_objs=vmi_objs,
-                                           vmi_uuids=ids)
+        return self._get_vmis_nets_ips(context, project_ids=project_ids,
+                                       device_ids=device_ids,
+                                       vmi_uuids=ids, vn_ids=vn_ids)
 
     def _get_ports_dict(self, vmi_objs, memo_req, extensions_enabled=False):
         ret_ports = []
-        for vmi_obj in vmi_objs:
+        for vmi_obj in vmi_objs or []:
             try:
                 port_info = self._vmi_to_neutron_port(
                     vmi_obj, memo_req, extensions_enabled=extensions_enabled)
@@ -772,25 +799,27 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
         filters = kwargs.get('filters', {})
 
         project_ids = []
+        tenant_ids = []
         if not context['is_admin']:
+            tenant_ids = [context['tenant']]
             project_ids = [str(uuid.UUID(context['tenant']))]
         elif 'tenant_id' in filters:
+            tenant_ids = filters['tenant_id']
             project_ids = db_handler.DBInterfaceV2._validate_project_ids(
-                filters['tenant_id'])
-        elif 'network_id':
-            # TODO(safchain)
-            pass
+                context, filters['tenant_id'])
 
         # choose the most appropriate way of retrieving ports
         # before pruning by other filters
         if 'device_id' in filters:
-            vmi_objs, vm_objs, vn_objs, iip_objs = self._get_vmi_resources(
-                context, project_ids, device_ids=filters['device_id'])
+            vmi_objs, vn_objs, iip_objs = self._get_vmi_resources(
+                context, project_ids, device_ids=filters['device_id'],
+                vn_ids=filters.get('network_id'))
         else:
-            vmi_objs, vm_objs, vn_objs, iip_objs = self._get_vmi_resources(
-                context, project_ids, ids=filters.get('id'))
+            vmi_objs, vn_objs, iip_objs = self._get_vmi_resources(
+                context, project_ids, ids=filters.get('id'),
+                vn_ids=filters.get('network_id'))
 
-        memo_req = self._get_vmi_memo_req_dict(vn_objs, iip_objs, vm_objs)
+        memo_req = self._get_vmi_memo_req_dict(vn_objs, iip_objs, None)
         extensions_enabled = kwargs.get('contrail_extensions_enabled', False)
         ports = self._get_ports_dict(vmi_objs, memo_req,
                                      extensions_enabled=extensions_enabled)
@@ -798,6 +827,9 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
         # prune phase
         ret_ports = []
         for port in ports:
+            if tenant_ids and port['tenant_id'] not in tenant_ids:
+                continue
+
             # TODO(safchain) revisit these filters if necessary
             if not db_handler.DBInterfaceV2._filters_is_present(filters,
                                                                 'name',
