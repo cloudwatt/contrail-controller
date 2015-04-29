@@ -77,8 +77,9 @@ class RouteTableGetHandler(RouteTableBaseGet,
         # collect phase
         all_rts = []  # all rts in all projects
         if filters and 'tenant_id' in filters:
-            project_ids = self._validate_project_ids(context,
-                                                     filters['tenant_id'])
+            project_ids = db_handler.DBInterfaceV2._validate_project_ids(
+                context,
+                filters['tenant_id'])
             for p_id in project_ids:
                 project_rts = self.resource_list_by_project(p_id)
                 all_rts.append(project_rts)
