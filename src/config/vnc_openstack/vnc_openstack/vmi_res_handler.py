@@ -519,7 +519,12 @@ class VMInterfaceCreateHandler(res_handler.ResourceCreateHandler,
 
     def _create_vmi_obj(self, port_q, vn_obj):
         project_id = str(uuid.UUID(port_q['tenant_id']))
-        proj_obj = self._project_read(proj_id=project_id)
+        try:
+            proj_obj = self._project_read(proj_id=project_id)
+        except vnc_exc.NoIdError:
+            db_handler.DBInterfaceV2._raise_contrail_exception(
+                'ProjectNotFound',
+                projec_id=project_id)
         id_perms = vnc_api.IdPermsType(enable=True)
         vmi_uuid = str(uuid.uuid4())
         if port_q.get('name'):
@@ -543,21 +548,28 @@ class VMInterfaceCreateHandler(res_handler.ResourceCreateHandler,
 
         return vmi_obj
 
-    def resource_create(self, **kwargs):
-        context = kwargs.get('context')
-        port_q = kwargs.get('port_q')
-        apply_subnet_host_routes = kwargs.get('apply_subnet_host_routes',
-                                              False)
+    def resource_create(self, context, port_q, apply_subnet_host_routes=False):
+        if 'network_id' not in port_q or \
+            'tenant_id' not in port_q:
+            raise db_handler.DBInterfaceV2._raise_contrail_exception(
+                'BadRequest', resource='vmi',
+                msg="'tenant_id' and 'network_id' are mandatory")
 
         net_id = port_q['network_id']
-        vn_obj = self._vnc_lib.virtual_network_read(id=net_id)
+        try:
+            vn_obj = self._vnc_lib.virtual_network_read(id=net_id)
+        except vnc_exc.NoIdError:
+            db_handler.DBInterfaceV2._raise_contrail_exception(
+                'NetworkNotFound',
+                net_id=net_id)
+
         tenant_id = self._get_tenant_id_for_create(context, port_q)
         proj_id = str(uuid.UUID(tenant_id))
 
         # if mac-address is specified, check against the exisitng ports
         # to see if there exists a port with the same mac-address
         if 'mac_address' in port_q:
-            self._validate_mac_address(proj_id, port_q['mac_address'])
+            self._validate_mac_address(proj_id, net_id, port_q['mac_address'])
 
         # initialize port object
         vmi_obj = self._create_vmi_obj(port_q, vn_obj)

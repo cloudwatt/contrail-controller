@@ -4,6 +4,7 @@ import bottle
 from vnc_api import vnc_api
 from vnc_openstack.tests.vnc_mock import MockVnc
 
+INVALID_UUID = '00000000000000000000000000000000'
 
 class TestBase(unittest.TestCase):
     def setUp(self):
@@ -77,6 +78,14 @@ class TestBase(unittest.TestCase):
                 ret = _handler_method(entry['input'])
                 self.assertTrue(self._compare(ret, entry['output']))
 
+    def _test_failures_on_create_invalid_id(self, create_dict,
+                                            invalidid_param):
+        _q = create_dict.copy()
+        _q[invalidid_param] = INVALID_UUID
+
+        with self.assertRaises(bottle.HTTPError):
+            self._handler.resource_create(_q)
+
     def _test_failures_on_create(self, null_entry=False,
                                  invalid_tenant=False):
         if null_entry:
@@ -85,14 +94,12 @@ class TestBase(unittest.TestCase):
                 self._handler.resource_create({})
 
         if invalid_tenant:
-            # put some invalid tenant id and check for exception
-            _q = {}
-            _q['tenant_id'] = '00000000000000000000000000000000'
-            with self.assertRaises(bottle.HTTPError):
-                self._handler.resource_create(_q)
+            self._test_failures_on_create_invalid_id({}, 'tenant_id')
 
     def _test_check_create(self, entries):
-        return self._test_check(self._handler.resource_create, entries)
+        def _pre_handler(inp):
+            return self._handler.resource_create(**inp)
+        return self._test_check(_pre_handler, entries)
 
     def _test_check_update(self, entries):
         def _pre_handler(inp):

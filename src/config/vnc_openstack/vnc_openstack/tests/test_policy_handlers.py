@@ -12,22 +12,24 @@ class TestPolicyHandlers(test_common.TestBase):
         self._test_failures_on_create(null_entry=True, invalid_tenant=True)
 
         entries = [
-            {'input': {'tenant_id': self._uuid_to_str(self.proj_obj.uuid),
-                       'name': 'test-policy-1',
-                       'entries': {'policy_rule': []}},
+            {'input': {'policy_q': {
+                    'tenant_id': self._uuid_to_str(self.proj_obj.uuid),
+                    'name': 'test-policy-1',
+                    'entries': {'policy_rule': []}}},
              'output': {'id': self._generated(),
                         'entries': {'policy_rule': []},
                         'fq_name': ['default-domain',
                                     'default-project',
                                     'test-policy-1']}}]
         entries.append(
-            {'input': {'tenant_id': self._uuid_to_str(self.proj_obj.uuid),
-                       'name': 'test-policy-2',
-                       'entries': {
-                           'policy_rule': [{
-                               "protocol": "icmp",
-                               "direction": ">",
-                               "ethertype": "IPv4"}]}},
+            {'input': {'policy_q': {
+                'tenant_id': self._uuid_to_str(self.proj_obj.uuid),
+                'name': 'test-policy-2',
+                'entries': {
+                    'policy_rule': [{
+                        "protocol": "icmp",
+                        "direction": ">",
+                        "ethertype": "IPv4"}]}}},
              'output': {'id': self._generated(),
                         'entries': {
                             'policy_rule': [{
@@ -50,12 +52,14 @@ class TestPolicyHandlers(test_common.TestBase):
         create_q = {'tenant_id': self._uuid_to_str(proj_1.uuid),
                     'name': 'policy-1', 'entries': {}}
         exp_output = {'fq_name': ['default-domain', 'proj-1', 'policy-1']}
-        self._test_check_create([{'input': create_q, 'output': exp_output}])
+        self._test_check_create([{'input': {'policy_q': create_q},
+                                  'output': exp_output}])
 
         create_q['tenant_id'] = proj_2.uuid
         create_q['name'] = 'policy-2'
         exp_output = {'fq_name': ['default-domain', 'proj-2', 'policy-2']}
-        self._test_check_create([{'input': create_q, 'output': exp_output}])
+        self._test_check_create([{'input': {'policy_q': create_q},
+                                  'output': exp_output}])
 
     def test_list(self):
         self._test_failures_on_list(invalid_tenant=True)
@@ -145,9 +149,10 @@ class TestPolicyHandlers(test_common.TestBase):
         self._test_failures_on_update()
         # create a null entry policy
         entries = [
-            {'input': {'tenant_id': self._uuid_to_str(self.proj_obj.uuid),
-                       'name': 'test-policy',
-                       'entries': {'policy_rule': []}},
+            {'input': {'policy_q': {
+                'tenant_id': self._uuid_to_str(self.proj_obj.uuid),
+                'name': 'test-policy',
+                'entries': {'policy_rule': []}}},
              'output': {'id': self._generated(),
                         'entries': {'policy_rule': []},
                         'fq_name': ['default-domain',
