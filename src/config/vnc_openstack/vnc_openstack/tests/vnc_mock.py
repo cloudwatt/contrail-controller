@@ -23,10 +23,10 @@ class MockVnc(object):
                 if kwargs['id'] in self._resource:
                     return self._resource[kwargs['id']]
             if 'fq_name_str' in kwargs or \
-               'fq_name' in kwargs:
+               ('fq_name' in kwargs and kwargs['fq_name']):
                 fq_name_str = kwargs['fq_name_str'] \
-                              if 'fq_name_str' in kwargs else \
-                              ':'.join(kwargs['fq_name'])
+                    if 'fq_name_str' in kwargs else \
+                    ':'.join(kwargs['fq_name'])
                 if fq_name_str in self._resource:
                     return self._resource[fq_name_str]
 
@@ -39,6 +39,8 @@ class MockVnc(object):
                      back_ref_id=None, obj_uuids=None, fields=None,
                      detail=False, count=False):
             ret = []
+            ret_resource_name = None
+
             if parent_fq_name:
                 for res in set(self._resource.values()):
                     if set(res.get_parent_fq_name()) == set(parent_fq_name):
@@ -47,18 +49,25 @@ class MockVnc(object):
                 for res in set(self._resource.values()):
                     if res.uuid in obj_uuids:
                         ret.append(res)
+            elif parent_id:
+                for res in set(self._resource.values()):
+                    if res.parent_uuid == parent_id:
+                        ret.append(res)
             else:
                 for res in set(self._resource.values()):
                     ret.append(res)
 
+            ret_resource_name = self._resource_type + 's'
+
             if count:
-                return {"count": len(ret)}
+                return {ret_resource_name: {"count": len(ret)}}
 
             if not detail:
                 sret = []
                 for res in ret:
                     sret.append(res.serialize_to_json())
-            return {self._resource_type + "s": sret}
+                ret = sret
+            return {ret_resource_name: ret}
 
     class CreateCallables(Callables):
         def __call__(self, obj):
@@ -85,7 +94,7 @@ class MockVnc(object):
 
             if fq_name_str:
                 if fq_name_str in self._resource:
-                    raise ValueError(
+                    raise vnc_exc.RefsExistError(
                         "%s fq_name already exists, please use "
                         "a different name" % fq_name_str)
 
@@ -119,7 +128,7 @@ class MockVnc(object):
                 fq_name_str = ':'.join(kwargs['fq_name'])
                 obj = self._resource[fq_name_str]
 
-            if 'id' in kwargs:
+            if 'id' in kwargs and kwargs['id'] in self._resource:
                 obj = self._resource[kwargs['id']]
 
             if not obj:

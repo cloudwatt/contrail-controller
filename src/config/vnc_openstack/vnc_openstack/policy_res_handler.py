@@ -42,8 +42,9 @@ class PolicyMixin(object):
     # end _policy_vnc_to_neutron
 
     def _policy_neutron_to_vnc(self, policy_q, policy_obj):
-        policy_obj.set_network_policy_entries(
-            vnc_api.PolicyEntriesType.factory(**policy_q['entries']))
+        if 'entries' in policy_q:
+            policy_obj.set_network_policy_entries(
+                vnc_api.PolicyEntriesType.factory(**policy_q['entries']))
 
         return policy_obj
     # end _policy_neutron_to_vnc
@@ -67,11 +68,7 @@ class PolicyGetHandler(PolicyBaseGet, PolicyMixin):
         return self._policy_vnc_to_neutron(policy_obj)
 
     def resource_list_by_project(self, project_id):
-        try:
-            project_uuid = str(uuid.UUID(project_id))
-        except Exception:
-            print "Error in converting uuid %s" % (project_id)
-
+        project_uuid = str(uuid.UUID(project_id))
         resp_dict = self._resource_list(parent_id=project_uuid)
 
         return resp_dict['network-policys']
@@ -82,8 +79,9 @@ class PolicyGetHandler(PolicyBaseGet, PolicyMixin):
         # collect phase
         all_policys = []  # all policys in all projects
         if filters and 'tenant_id' in filters:
-            project_ids = self._validate_project_ids(context,
-                                                     filters['tenant_id'])
+            project_ids = db_handler.DBInterfaceV2._validate_project_ids(
+                context,
+                filters['tenant_id'])
             for p_id in project_ids:
                 project_policys = self.resource_list_by_project(p_id)
                 all_policys.append(project_policys)
@@ -125,7 +123,12 @@ class PolicyCreateHandler(res_handler.ResourceCreateHandler, PolicyMixin):
                 msg="'tenant_id' is mandatory")
         project_id = str(uuid.UUID(policy_q['tenant_id']))
         policy_name = policy_q.get('name', None)
-        project_obj = self._project_read(proj_id=project_id)
+        try:
+            project_obj = self._project_read(proj_id=project_id)
+        except vnc_exc.NoIdError:
+            raise db_handler.DBInterfaceV2._raise_contrail_exception(
+                "ProjectNotFound", id=project_id)
+
         policy_obj = vnc_api.NetworkPolicy(policy_name, project_obj)
         policy_obj = self._policy_neutron_to_vnc(policy_q, policy_obj)
         try:
@@ -158,7 +161,11 @@ class PolicyDeleteHandler(res_handler.ResourceDeleteHandler):
     resource_delete_method = "network_policy_delete"
 
     def resource_delete(self, policy_id):
-        self._resource_delete(id=policy_id)
+        try:
+            self._resource_delete(id=policy_id)
+        except vnc_exc.NoIdError:
+            raise db_handler.DBInterfaceV2._raise_contrail_exception(
+                "PolicyNotFound", id=policy_id)
 
 
 class PolicyHandler(PolicyGetHandler,

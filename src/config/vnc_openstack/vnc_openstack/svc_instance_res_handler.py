@@ -74,8 +74,9 @@ class SvcInstanceGetHandler(res_handler.ResourceGetHandler,
         # collect phase
         all_sis = []  # all sis in all projects
         if filters and 'tenant_id' in filters:
-            project_ids = self._validate_project_ids(context,
-                                                     filters['tenant_id'])
+            project_ids = db_handler.DBInterfaceV2._validate_project_ids(
+                context,
+                filters['tenant_id'])
             for p_id in project_ids:
                 project_sis = self.resource_list_by_project(p_id)
                 all_sis.append(project_sis)
