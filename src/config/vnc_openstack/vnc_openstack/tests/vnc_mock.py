@@ -172,9 +172,10 @@ class MockVnc(object):
                 for ref in obj._pending_ref_updates:
                     #if ref.endswith("_refs"):
                     #    ref = ref.replace('_', '-')
-                    cur_obj_ref = getattr(cur_obj, ref)
-                    obj_ref = getattr(obj, ref)
-                    cur_obj_ref += obj_ref
+                    if cur_obj is not obj:
+                        cur_obj_ref = getattr(cur_obj, ref)
+                        obj_ref = getattr(obj, ref)
+                        cur_obj_ref += obj_ref
 
             if obj._pending_field_updates:
                 for ref in obj._pending_field_updates:
@@ -198,6 +199,31 @@ class MockVnc(object):
 
             self._resource.pop(obj.uuid)
             self._resource.pop(':'.join(obj.get_fq_name()), None)
+
+            # remove all the back refs
+            def delete_back_refs(ref_name, ref_uuid, back_ref_name, back_ref_uuid):
+                _ref_name = ref_name
+                if _ref_name not in self._resource_collection or \
+                    ref_uuid not in self._resource_collection[_ref_name]:
+                    # TODO: Implement if needed
+                    print " -- Unable to locate %s resource with uuid %s" % (
+                        _ref_name, ref_uuid)
+                else:
+                    ref_obj = self._resource_collection[_ref_name][ref_uuid]
+                    back_ref = getattr(ref_obj, back_ref_name)
+                    for index, value in enumerate(back_ref):
+                        if value['uuid'] == back_ref_uuid:
+                            back_ref.pop(index)
+                            break
+
+            for ref in obj.ref_fields:
+                back_ref_name = self._resource_type.replace("-", "_") + "_back_refs"
+                ref_name = ref[:-5]
+                if not hasattr(obj, ref):
+                    continue
+                ref_value = getattr(obj, ref)
+                for r in ref_value:
+                    delete_back_refs(ref_name,r['uuid'],  back_ref_name, obj.uuid)
 
     def __getattr__(self, method):
         (resource, action) = self._break_method(method)
@@ -233,6 +259,12 @@ class MockVnc(object):
 
     def obj_to_dict(self, obj):
         return json.loads(self.obj_to_json(obj))
+
+    def obj_to_id(self, obj):
+        if obj.uuid:
+            return obj.uuid
+        else:
+            return "%031d" % 0
 
     def kv_store(self, key, value):
         self._kv_dict[key] = value

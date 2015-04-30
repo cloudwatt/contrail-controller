@@ -343,7 +343,7 @@ class VMInterfaceMixin(object):
         # no_rule group should be used.
         if not sec_group_list:
             sg_obj = res_handler.SGHandler(
-                self._vnc_lib)._get_no_rule_security_group()
+                self._vnc_lib).get_no_rule_security_group()
             vmi_obj.add_security_group(sg_obj)
 
     def _set_vmi_extra_dhcp_options(self, vmi_obj, extra_dhcp_options):
