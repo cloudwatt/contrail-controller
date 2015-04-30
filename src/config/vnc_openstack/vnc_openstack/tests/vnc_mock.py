@@ -42,7 +42,6 @@ class MockVnc(object):
                      detail=False, count=False):
             ret = []
             ret_resource_name = None
-
             if parent_fq_name:
                 for res in set(self._resource.values()):
                     if set(res.get_parent_fq_name()) == set(parent_fq_name):
@@ -53,8 +52,21 @@ class MockVnc(object):
                         ret.append(res)
             elif parent_id:
                 for res in set(self._resource.values()):
-                    if res.parent_uuid == parent_id:
+                    if isinstance(parent_id, list):
+                        if res.parent_uuid in parent_id:
+                            ret.append(res)
+                    elif res.parent_uuid == parent_id:
                         ret.append(res)
+            elif back_ref_id:
+                for res in set(self._resource.values()):
+                    back_ref_fields = getattr(res, 'back_ref_fields', [])
+                    ref_fields = getattr(res, 'ref_fields', [])
+                    back_ref_fields.extend(ref_fields)
+                    for field in back_ref_fields:
+                        back_ref_field = getattr(res, field, [])
+                        for f in back_ref_field:
+                            if f['uuid'] in back_ref_id:
+                                ret.append(res)
             else:
                 for res in set(self._resource.values()):
                     ret.append(res)
@@ -106,7 +118,7 @@ class MockVnc(object):
                             _ref_name, ref_uuid)
                     else:
                         ref_obj = self._resource_collection[_ref_name][ref_uuid]
-                        back_ref = {'uuid': back_ref_obj.uuid}
+                        back_ref = {'uuid': back_ref_obj.uuid, 'to': back_ref_obj.get_fq_name()}
                         back_ref_name = "%s_back_refs" % back_ref_name.replace("-", "_")
                         if hasattr(ref_obj, back_ref_name):
                             getattr(ref_obj, back_ref_name).append(back_ref)
@@ -118,12 +130,12 @@ class MockVnc(object):
                     for r in getattr(obj, field):
                         if 'uuid' not in r:
                             r['uuid'] = str(UUID.uuid4())
-                    update_back_ref(field, getattr(obj, field),
-                                    self._resource_type, obj)
+                        update_back_ref(field, getattr(obj, field),
+                                        self._resource_type, obj)
 
             self._pending_ref_updates = self._pending_field_updates = []
 
-            if fq_name_str:
+            if fq_name_str and fq_name_str != uuid:
                 if fq_name_str in self._resource:
                     raise vnc_exc.RefsExistError(
                         "%s fq_name already exists, please use "
@@ -143,6 +155,9 @@ class MockVnc(object):
                 if not obj.get_virtual_machine_interface_mac_addresses():
                     obj.set_virtual_machine_interface_mac_addresses(
                         vnc_api.MacAddressesType([random_mac()]))
+            elif self._resource_type == "instance-ip":
+                if not obj.get_instance_ip_address():
+                    obj.set_instance_ip_address('1.1.1.1')
 
             return uuid
 
@@ -186,7 +201,6 @@ class MockVnc(object):
 
     def __getattr__(self, method):
         (resource, action) = self._break_method(method)
-
         if action not in ['list', 'read', 'create',
                           'update', 'delete']:
             raise ValueError("Unknown action %s received for %s method" %

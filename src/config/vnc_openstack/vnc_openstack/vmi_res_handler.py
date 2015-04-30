@@ -377,9 +377,8 @@ class VMInterfaceMixin(object):
                     'BadRequest', resource='port',
                     msg='Invalid address pair argument')
 
-            aap = vnc_api.AllowedAddressPair(subnet,
-                                             address_pair['mac_address'], mode)
-            aap_array.append(aap)
+            aap_array.append(vnc_api.AllowedAddressPair(subnet,
+                address_pair['mac_address'], mode))
 
         aaps = vnc_api.AllowedAddressPairs()
         if aap_array:
@@ -414,7 +413,11 @@ class VMInterfaceMixin(object):
 
     def _neutron_port_to_vmi(self, port_q, vmi_obj=None):
         if not vmi_obj:
-            vmi_obj = self._resource_get(id=port_q.get('id'))
+            try:
+                vmi_obj = self._resource_get(id=port_q.get('id'))
+            except vnc_exc.NoIdError:
+                raise db_handler.DBInterfaceV2._raise_contrail_exception(
+                    'PortNotFound', port_id=port_q.get('id'))
 
         if 'name' in port_q and port_q['name']:
             vmi_obj.display_name = port_q['name']
@@ -439,7 +442,7 @@ class VMInterfaceMixin(object):
 
         if 'extra_dhcp_opts' in port_q:
             self._set_vmi_extra_dhcp_options(vmi_obj,
-                                             port_q.get('extra_dhcp_options'))
+                                             port_q.get('extra_dhcp_opts'))
 
         if ('allowed_address_pairs' in port_q):
             self._set_vmi_allowed_addr_pairs(
@@ -626,9 +629,7 @@ class VMInterfaceUpdateHandler(res_handler.ResourceUpdateHandler,
                                VMInterfaceMixin):
     resource_update_method = 'virtual_machine_interface_update'
 
-    def resource_update(self, **kwargs):
-        port_id = kwargs.get('port_id')
-        port_q = kwargs.get('port_q')
+    def resource_update(self, port_id, port_q, contrail_entension_enabled=False):
         port_q['id'] = port_id
         vmi_obj = self._neutron_port_to_vmi(port_q)
         net_id = vmi_obj.get_virtual_network_refs()[0]['uuid']
@@ -653,9 +654,12 @@ class VMInterfaceDeleteHandler(res_handler.ResourceDeleteHandler,
                                VMInterfaceMixin):
     resource_delete_method = 'virtual_machine_interface_delete'
 
-    def resource_delete(self, **kwargs):
-        port_id = kwargs.get('port_id')
-        vmi_obj = self._resource_get(id=port_id)
+    def resource_delete(self, port_id):
+        try:
+            vmi_obj = self._resource_get(id=port_id)
+        except vnc_exc.NoIdError:
+            raise db_handler.DBInterfaceV2._raise_contrail_exception(
+                "PortNotFound", port_id=port_id)
         if vmi_obj.parent_type == 'virtual-machine':
             instance_id = vmi_obj.parent_uuid
         else:
@@ -803,12 +807,10 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
 
         return ret_ports
 
-    def resource_list(self, **kwargs):
-        context = kwargs.get('context')
+    def resource_list(self, context, filters={},
+                      contrail_extensions_enabled=False):
         if not context:
             return
-
-        filters = kwargs.get('filters', {})
 
         project_ids = []
         tenant_ids = []
@@ -832,9 +834,9 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
                 vn_ids=filters.get('network_id'))
 
         memo_req = self._get_vmi_memo_req_dict(vn_objs, iip_objs, None)
-        extensions_enabled = kwargs.get('contrail_extensions_enabled', False)
-        ports = self._get_ports_dict(vmi_objs, memo_req,
-                                     extensions_enabled=extensions_enabled)
+        ports = self._get_ports_dict(
+            vmi_objs, memo_req,
+            extensions_enabled=contrail_extensions_enabled)
 
         # prune phase
         ret_ports = []
@@ -858,17 +860,15 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
 
         return ret_ports
 
-    def resource_get(self, **kwargs):
+    def resource_get(self, port_id, contrail_extensions_enabled=False):
         try:
-            port_id = kwargs.get('port_id')
             vmi_obj = self._resource_get(id=port_id)
         except vnc_exc.NoIdError:
             db_handler.DBInterfaceV2._raise_contrail_exception('PortNotFound',
                                                                port_id=port_id)
 
-        extensions_enabled = kwargs.get('contrail_extensions_enabled', False)
         ret_port_q = self._vmi_to_neutron_port(
-            vmi_obj, extensions_enabled=extensions_enabled)
+            vmi_obj, extensions_enabled=contrail_extensions_enabled)
 
         return ret_port_q
 
