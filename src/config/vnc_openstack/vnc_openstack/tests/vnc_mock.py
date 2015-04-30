@@ -180,7 +180,7 @@ class MockVnc(object):
                 for ref in obj._pending_field_updates:
                     #if ref.endswith("_refs"):
                     #    ref = ref[:-5].replace('_', '-')
-                    setattr(cur_obj, ref, getattr(obj, ref))
+                    setattr(cur_obj, ref, getattr(obj, ref, None))
 
     class DeleteCallables(Callables):
         def __call__(self, **kwargs):
