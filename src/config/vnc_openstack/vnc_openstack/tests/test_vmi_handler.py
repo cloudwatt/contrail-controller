@@ -1,8 +1,11 @@
+from neutron.common import constants as n_constants
 from vnc_openstack import vmi_res_handler as vmi_handler
 from vnc_openstack import subnet_res_handler as subnet_handler
+from vnc_openstack import contrail_res_handler as res_handler
 from vnc_openstack.tests import test_common
 from vnc_api import vnc_api
 import bottle
+import uuid
 
 
 class TestVmiHandlers(test_common.TestBase):
@@ -175,6 +178,11 @@ class TestVmiHandlers(test_common.TestBase):
             'port_q': {
                 'name': 'test-port-updated',
                 'admin_state_up': False,
+                'security_groups': [],
+                'device_owner': 'vm',
+                'device_id': 'test-instance-1',
+                'fixed_ips': [{'subnet_id': subnet_uuid, 
+                               'ip_address': '192.168.1.10'}],
                 'allowed_address_pairs': [{'ip_address': "10.0.0.0/24"},
                                           {'ip_address': "192.168.1.4"}],
                 'extra_dhcp_opts': [{'opt_name': '4',
@@ -183,11 +191,25 @@ class TestVmiHandlers(test_common.TestBase):
             'output': {'name': 'test-port-updated',
                        'admin_state_up': False,
                        'id': port_id_1,
+                       'security_groups': [self._generated()],
                        'extra_dhcp_opts': [{'opt_value': '8.8.8.8',
                                             'opt_name': '4'}],
                        'allowed_address_pairs': [
                             {'ip_address': '10.0.0.0/24'},
                             {'ip_address': '192.168.1.4'}]}}]
+        self._test_check_update(entries)
+
+        sg_rules = vnc_api.PolicyEntriesType()
+        sg_obj = vnc_api.SecurityGroup(
+            name='test-sec-group',
+            parent_obj=self.proj_obj,
+            security_group_entries=sg_rules)
+        self._test_vnc_lib.security_group_create(sg_obj)
+        entries[0]['input']['port_q']['security_groups'] = [sg_obj.uuid]
+        entries[0]['input']['port_q']['device_id'] = 'test-instance-2'
+        entries[0]['input']['port_q']['fixed_ips'][0]['ip_address'] = '192.168.1.11'
+        entries[0]['output']['security_groups'] = [sg_obj.uuid]
+
         self._test_check_update(entries)
 
     def test_get(self):
