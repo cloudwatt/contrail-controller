@@ -82,7 +82,7 @@ class SubnetMixin(object):
                 # contrail UI/api might have been used to create the subnet,
                 # create key to id mapping now/here.
                 subnet_vnc = self._subnet_read(key)
-                subnet_id = subnet_vnc.uuid
+                subnet_id = subnet_vnc.subnet_uuid
                 # persist to avoid this calculation later
                 self._subnet_vnc_create_mapping(subnet_id, key)
             return subnet_id
@@ -137,7 +137,7 @@ class SubnetMixin(object):
         for alloc_obj in alloc_objs or []:
             first_ip = alloc_obj.get_start()
             last_ip = alloc_obj.get_end()
-            alloc_dict = {'first_ip': first_ip, 'last_ip': last_ip}
+            alloc_dict = {'start': first_ip, 'end': last_ip}
             allocation_pools.append(alloc_dict)
 
         if not allocation_pools:
@@ -147,7 +147,7 @@ class SubnetMixin(object):
             else:
                 first_ip = str(netaddr.IPNetwork(cidr).network + 1)
             last_ip = str(netaddr.IPNetwork(cidr).broadcast - 1)
-            cidr_pool = {'first_ip': first_ip, 'last_ip': last_ip}
+            cidr_pool = {'start': first_ip, 'end': last_ip}
             allocation_pools.append(cidr_pool)
 
         return allocation_pools

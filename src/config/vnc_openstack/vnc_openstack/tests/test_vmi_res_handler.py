@@ -151,13 +151,6 @@ class TestVMInterfaceMixin(test_res_handler.TestContrailBase):
                                                             memo_req)
         self.assertEqual('foo-id', subnet_id)
 
-    def _get_fake_subnet_vnc(self, prefix, len, subnet_id):
-        fake_subnet_vnc = mock.Mock()
-        fake_subnet_vnc.subnet.get_ip_prefix.return_value = prefix
-        fake_subnet_vnc.subnet.get_ip_prefix_len.return_value = len
-        fake_subnet_vnc.subnet_uuid = subnet_id
-        return fake_subnet_vnc
-
     def test__ip_address_to_subnet_id_from_vn_obj(self):
         memo_req = {'subnets': {}}
         fake_vn_obj = mock.Mock()

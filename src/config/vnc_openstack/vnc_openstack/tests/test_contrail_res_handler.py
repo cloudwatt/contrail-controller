@@ -31,6 +31,12 @@ class TestContrailBase(testtools.TestCase):
         super(TestContrailBase, self).setUp()
         self.vnc_lib = mock.MagicMock()
 
+    def _get_fake_subnet_vnc(self, prefix, len, subnet_id):
+        fake_subnet_vnc = mock.Mock()
+        fake_subnet_vnc.subnet.get_ip_prefix.return_value = prefix
+        fake_subnet_vnc.subnet.get_ip_prefix_len.return_value = len
+        fake_subnet_vnc.subnet_uuid = subnet_id
+        return fake_subnet_vnc
 
 class TestContrailResHandler(TestContrailBase):
 
