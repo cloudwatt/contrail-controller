@@ -44,6 +44,9 @@ class TestBase(unittest.TestCase):
 
     def _compare_list(self, verify, against):
         _against = list(against)
+        if len(verify) != len(against):
+            return False
+
         for v in verify:
             for index, a in enumerate(_against):
                 if self._compare(v, a):
