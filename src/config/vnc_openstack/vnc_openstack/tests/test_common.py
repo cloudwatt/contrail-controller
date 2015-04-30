@@ -66,9 +66,6 @@ class TestBase(unittest.TestCase):
             if (k in verify):
                 if not self._compare(v, verify[k]):
                     return False
-            else:
-                return False
-
         return True
 
     def _test_check(self, _handler_method, test_entries):
