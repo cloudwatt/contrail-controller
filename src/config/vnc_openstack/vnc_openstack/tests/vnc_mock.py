@@ -1,6 +1,21 @@
-from cfgm_common import exceptions as vnc_exc
+#    Copyright
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
 import json
 import uuid as UUID
+
+from cfgm_common import exceptions as vnc_exc
 from vnc_api import vnc_api
 
 
@@ -24,11 +39,11 @@ class MockVnc(object):
             if 'id' in kwargs:
                 if kwargs['id'] in self._resource:
                     return self._resource[kwargs['id']]
-            if 'fq_name_str' in kwargs or \
-               ('fq_name' in kwargs and kwargs['fq_name']):
-                fq_name_str = kwargs['fq_name_str'] \
-                    if 'fq_name_str' in kwargs else \
-                    ':'.join(kwargs['fq_name'])
+            if ('fq_name_str' in kwargs or (
+                    'fq_name' in kwargs and kwargs['fq_name'])):
+                fq_name_str = (kwargs['fq_name_str']
+                               if 'fq_name_str' in kwargs else
+                               ':'.join(kwargs['fq_name']))
                 if fq_name_str in self._resource:
                     return self._resource[fq_name_str]
 
@@ -110,16 +125,20 @@ class MockVnc(object):
                 _ref_name = ref_name[:-5]
                 for ref in refs:
                     ref_uuid = ref['uuid']
-                    ref_fq_name = ref['to']
-                    if _ref_name not in self._resource_collection or \
-                        ref_uuid not in self._resource_collection[_ref_name]:
-                        # TODO: Implement if needed
-                        print " -- Unable to locate %s resource with uuid %s" % (
-                            _ref_name, ref_uuid)
+                    if (_ref_name not in self._resource_collection or
+                            ref_uuid not in
+                            self._resource_collection[_ref_name]):
+                        # TODO(anbu): Implement if needed
+                        msg = (" -- Unable to locate %s resource with uuid %s"
+                               % (_ref_name, ref_uuid))
+                        print(msg)
                     else:
-                        ref_obj = self._resource_collection[_ref_name][ref_uuid]
-                        back_ref = {'uuid': back_ref_obj.uuid, 'to': back_ref_obj.get_fq_name()}
-                        back_ref_name = "%s_back_refs" % back_ref_name.replace("-", "_")
+                        ref_obj = (
+                            self._resource_collection[_ref_name][ref_uuid])
+                        back_ref = {'uuid': back_ref_obj.uuid,
+                                    'to': back_ref_obj.get_fq_name()}
+                        back_ref_name = ("%s_back_refs"
+                                         % back_ref_name.replace("-", "_"))
                         if hasattr(ref_obj, back_ref_name):
                             getattr(ref_obj, back_ref_name).append(back_ref)
                         else:
@@ -148,7 +167,7 @@ class MockVnc(object):
                 def random_mac():
                     import random
                     mac = [0x00, 0x00, 0x00]
-                    for i in range(3,6):
+                    for i in range(3, 6):
                         mac.append(random.randint(0x00, 0x7f))
 
                     return ":".join(map(lambda x: "%02x" % x, mac))
@@ -170,7 +189,7 @@ class MockVnc(object):
 
             if obj._pending_ref_updates:
                 for ref in obj._pending_ref_updates:
-                    #if ref.endswith("_refs"):
+                    # if ref.endswith("_refs"):
                     #    ref = ref.replace('_', '-')
                     if cur_obj is not obj:
                         cur_obj_ref = getattr(cur_obj, ref)
@@ -179,7 +198,7 @@ class MockVnc(object):
 
             if obj._pending_field_updates:
                 for ref in obj._pending_field_updates:
-                    #if ref.endswith("_refs"):
+                    # if ref.endswith("_refs"):
                     #    ref = ref[:-5].replace('_', '-')
                     setattr(cur_obj, ref, getattr(obj, ref, None))
 
@@ -201,13 +220,14 @@ class MockVnc(object):
             self._resource.pop(':'.join(obj.get_fq_name()), None)
 
             # remove all the back refs
-            def delete_back_refs(ref_name, ref_uuid, back_ref_name, back_ref_uuid):
+            def delete_back_refs(ref_name, ref_uuid, back_ref_name,
+                                 back_ref_uuid):
                 _ref_name = ref_name
-                if _ref_name not in self._resource_collection or \
-                    ref_uuid not in self._resource_collection[_ref_name]:
-                    # TODO: Implement if needed
-                    print " -- Unable to locate %s resource with uuid %s" % (
-                        _ref_name, ref_uuid)
+                if (_ref_name not in self._resource_collection or
+                        ref_uuid not in self._resource_collection[_ref_name]):
+                    # TODO(anbu): Implement if needed
+                    print(" -- Unable to locate %s resource with uuid %s" % (
+                        _ref_name, ref_uuid))
                 else:
                     ref_obj = self._resource_collection[_ref_name][ref_uuid]
                     back_ref = getattr(ref_obj, back_ref_name)
@@ -217,13 +237,15 @@ class MockVnc(object):
                             break
 
             for ref in obj.ref_fields:
-                back_ref_name = self._resource_type.replace("-", "_") + "_back_refs"
+                back_ref_name = (self._resource_type.replace("-", "_") +
+                                 "_back_refs")
                 ref_name = ref[:-5]
                 if not hasattr(obj, ref):
                     continue
                 ref_value = getattr(obj, ref)
                 for r in ref_value:
-                    delete_back_refs(ref_name,r['uuid'],  back_ref_name, obj.uuid)
+                    delete_back_refs(ref_name, r['uuid'],  back_ref_name,
+                                     obj.uuid)
 
     def __getattr__(self, method):
         (resource, action) = self._break_method(method)
@@ -270,7 +292,10 @@ class MockVnc(object):
         self._kv_dict[key] = value
 
     def kv_retrieve(self, key):
-        return self._kv_dict[key]
+        try:
+            return self._kv_dict[key]
+        except KeyError:
+            raise vnc_exc.NoIdError(key)
 
     def kv_delete(self, key):
         return self._kv_dict.pop(key, None)

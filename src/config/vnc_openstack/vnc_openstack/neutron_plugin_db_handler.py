@@ -68,8 +68,7 @@ class DBInterfaceV2(DBInterface):
             if key_name in filters:
                 try:
                     if key_name == 'tenant_id':
-                        filter_value = [str(uuid.UUID(t_id))
-                                        for t_id in filters[key_name]]
+                        filter_value = [t_id for t_id in filters[key_name]]
                     else:
                         filter_value = filters[key_name]
                     filter_value.index(match_value)

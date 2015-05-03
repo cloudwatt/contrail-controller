@@ -211,11 +211,10 @@ class TestVMInterfaceMixin(test_res_handler.TestContrailBase):
             fake_vmi_obj, fake_vn_obj, fake_port_memo)
         self.assertEqual(expected_ip_dict_list, returned_ip_dict_list)
 
-    def test_get_port_gw_id(self):
-        fake_vmi_obj = mock.Mock()
-        fake_vmi_obj.get_virtual_machine_refs.return_value = None
-        self.assertIsNone(self.vmi_mixin.get_port_gw_id(fake_vmi_obj,
-                                                        mock.ANY))
+    def _test_get_port_gw_id(self):
+        fake_vm_ref = {'to': []}
+        self.assertIsNone(self.vmi_mixin.get_port_gw_id(fake_vm_ref,
+                                                        mock.Mock()))
 
         fake_vm_refs = [{'uuid': 'fake-vm-1'}]
         fake_vmi_obj.get_virtual_machine_refs.return_value = fake_vm_refs
@@ -223,7 +222,7 @@ class TestVMInterfaceMixin(test_res_handler.TestContrailBase):
 
         self.vnc_lib.virtual_machine_read.side_effect = vnc_exc.NoIdError(
             mock.ANY)
-        self.assertIsNone(self.vmi_mixin.get_port_gw_id(fake_vmi_obj,
+        self.assertIsNone(self.vmi_mixin.get_port_gw_id(fake_vm_refs,
                                                         fake_port_req_memo))
 
         fake_vm_obj = mock.Mock()
@@ -252,26 +251,6 @@ class TestVMInterfaceMixin(test_res_handler.TestContrailBase):
         port_gw_id = self.vmi_mixin.get_port_gw_id(fake_vmi_obj,
                                                    fake_port_req_memo)
         self.assertEqual('fake-router-id', port_gw_id)
-
-    def test__device_ids_from_vmi_objs(self):
-        fake_vmi1 = mock.Mock()
-        fake_vmi1.get_virtual_machine_refs.return_value = [{'uuid':
-                                                         'vm1-device-id'}]
-
-        fake_vmi2 = mock.Mock()
-        fake_vmi2.get_virtual_machine_refs.return_value = None
-        fake_vmi2.get_logical_router_back_refs.return_value = None
-
-        fake_vmi3 = mock.Mock()
-        fake_vmi3.get_virtual_machine_refs.return_value = None
-        fake_vmi3.get_logical_router_back_refs.return_value = ([
-            {'uuid': 'vm3-device-id'}])
-
-        expected_device_ids = ['vm1-device-id', 'vm3-device-id']
-        fake_vmi_objs = [fake_vmi1, fake_vmi2, fake_vmi3]
-        returned_device_ids = self.vmi_mixin._device_ids_from_vmi_objs(
-            fake_vmi_objs)
-        self.assertEqual(expected_device_ids, returned_device_ids)
 
     def _test__vmi_to_neutron_port_helper(self, allowed_pairs=None,
                                           extensions_enabled=True):

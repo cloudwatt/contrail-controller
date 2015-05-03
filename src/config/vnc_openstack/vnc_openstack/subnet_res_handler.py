@@ -373,8 +373,7 @@ class SubnetCreateHandler(res_handler.ResourceCreateHandler, SubnetMixin):
 
 class SubnetDeleteHandler(res_handler.ResourceDeleteHandler, SubnetMixin):
 
-    def resource_delete(self, **kwargs):
-        subnet_id = kwargs.get('subnet_id')
+    def resource_delete(self, subnet_id):
         subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
         net_id = subnet_key.split()[0]
 
@@ -401,8 +400,7 @@ class SubnetGetHandler(res_handler.ResourceGetHandler, SubnetMixin):
     resource_list_method = 'virtual_networks_list'
     resource_get_method = 'virtual_network_read'
 
-    def resource_get(self, **kwargs):
-        subnet_id = kwargs.get('subnet_id')
+    def resource_get(self, subnet_id):
         subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
         net_id = subnet_key.split()[0]
 
@@ -553,11 +551,8 @@ class SubnetUpdateHandler(res_handler.ResourceUpdateHandler, SubnetMixin):
 
         return ret_subnet_q
 
-    def resource_update(self, **kwargs):
-        subnet_q = kwargs.get('subnet_q')
-        subnet_id = kwargs.get('subnet_id')
-        apply_subnet_host_routes = kwargs.get('apply_subnet_host_routes',
-                                              False)
+    def resource_update(self, subnet_id, subnet_q,
+                        apply_subnet_host_routes=False):
         if 'gateway_ip' in subnet_q:
             if subnet_q['gateway_ip'] is not None:
                 self._raise_contrail_exception(
@@ -592,7 +587,8 @@ class SubnetHostRoutesHandler(res_handler.ContrailResourceHandler,
 
     @staticmethod
     def _port_get_host_prefixes(self, host_routes, subnet_cidr):
-        """This function returns the host prefixes
+        """This function returns the host prefixes.
+
         Eg. If host_routes have the below routes
            ---------------------------
            |destination   | next hop  |
@@ -657,14 +653,14 @@ class SubnetHostRoutesHandler(res_handler.ContrailResourceHandler,
             route_table = vnc_api.RouteTableType(intf_rt_name)
             route_table.set_route([])
             intf_route_table = vnc_api.InterfaceRouteTable(
-                                    interface_route_table_routes=route_table,
-                                    parent_obj=project_obj,
-                                    name=intf_rt_name)
+                interface_route_table_routes=route_table,
+                parent_obj=project_obj,
+                name=intf_rt_name)
 
             intf_route_table_id = self._vnc_lib.interface_route_table_create(
-                                    intf_route_table)
+                intf_route_table)
             intf_route_table_obj = self._vnc_lib.interface_route_table_read(
-                                    id=intf_route_table_id)
+                id=intf_route_table_id)
 
         rt_routes = intf_route_table_obj.get_interface_route_table_routes()
         routes = rt_routes.get_route()
@@ -679,7 +675,7 @@ class SubnetHostRoutesHandler(res_handler.ContrailResourceHandler,
         self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
     def port_check_and_add_iface_route_table(self, fixed_ips, vn_obj,
-                                              vmi_obj):
+                                             vmi_obj):
         ipam_refs = vn_obj.get_network_ipam_refs()
         if not ipam_refs:
             return
@@ -700,11 +696,11 @@ class SubnetHostRoutesHandler(res_handler.ContrailResourceHandler,
                     host_prefixes = self._port_get_host_prefixes(
                         host_routes.route, subnet_cidr)
                     if ip_addr in host_prefixes:
-                        self._port_add_iface_route_table(host_prefixes[ip_addr],
-                                                         vmi_obj, sn_id)
+                        self._port_add_iface_route_table(
+                            host_prefixes[ip_addr], vmi_obj, sn_id)
 
     def port_update_iface_route_table(self, vn_obj, subnet_cidr, subnet_id,
-                                       new_host_routes, old_host_routes=None):
+                                      new_host_routes, old_host_routes=None):
         old_host_prefixes = {}
         if old_host_routes:
             old_host_prefixes = self._port_get_host_prefixes(
@@ -721,7 +717,7 @@ class SubnetHostRoutesHandler(res_handler.ContrailResourceHandler,
                             need_update = True
                             break
                 else:
-                    need_update= True
+                    need_update = True
                 if need_update:
                     old_host_prefixes.pop(ipaddr)
                 else:
@@ -737,7 +733,7 @@ class SubnetHostRoutesHandler(res_handler.ContrailResourceHandler,
 
         # get the list of all the ip objs for this network
         ipobjs = self.self._vnc_lib.instance_ips_list(
-                detail=True, back_ref_id=[vn_obj.uuid])
+            detail=True, back_ref_id=[vn_obj.uuid])
         back_ref_fields = ['logical_router_back_refs', 'instance_ip_back_refs',
                            'floating_ip_back_refs']
         for ipobj in ipobjs:
@@ -762,8 +758,8 @@ class SubnetHostRoutesHandler(res_handler.ContrailResourceHandler,
             vmi_obj = self._vnc_lib.virtual_machine_interface_read(
                 id=port_ref['uuid'], fields=back_ref_fields)
             intf_rt_name = '%s_%s_%s' % (_IFACE_ROUTE_TABLE_NAME_PREFIX,
-                                         subnet_id, port_obj.uuid)
-            for rt_ref in port_obj.get_interface_route_table_refs() or []:
+                                         subnet_id, vmi_obj.uuid)
+            for rt_ref in vmi_obj.get_interface_route_table_refs() or []:
                 if rt_ref['to'][2] != intf_rt_name:
                     continue
                 try:

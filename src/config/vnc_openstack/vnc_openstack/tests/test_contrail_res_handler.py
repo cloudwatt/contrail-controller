@@ -12,17 +12,17 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import bottle
+
 import contextlib
-import mock
-import testtools
 import uuid
 
-from cfgm_common import exceptions as vnc_exc
-from vnc_openstack import contrail_res_handler as res_handler
-from vnc_openstack import neutron_plugin_db_handler as db_handler
+import bottle
+import mock
+import testtools
 
+from cfgm_common import exceptions as vnc_exc
 from vnc_api import vnc_api
+from vnc_openstack import contrail_res_handler as res_handler
 
 
 class TestContrailBase(testtools.TestCase):
@@ -37,6 +37,7 @@ class TestContrailBase(testtools.TestCase):
         fake_subnet_vnc.subnet.get_ip_prefix_len.return_value = len
         fake_subnet_vnc.subnet_uuid = subnet_id
         return fake_subnet_vnc
+
 
 class TestContrailResHandler(TestContrailBase):
 
@@ -55,7 +56,8 @@ class TestContrailResHandler(TestContrailBase):
 
     def test__project_list_domain(self):
         expected_proj_list = ['foo', 'bar']
-        self.vnc_lib.projects_list.return_value = {'projects': expected_proj_list}
+        self.vnc_lib.projects_list.return_value = {'projects':
+                                                   expected_proj_list}
         returned_proj_list = self.contrail_res_handler._project_list_domain('')
         self.assertEqual(expected_proj_list, returned_proj_list)
 
@@ -153,7 +155,8 @@ class TestResourceGetHandler(TestContrailBase):
         self.assertEqual(None, ret_value)
 
     def test__resource_count_optimized(self):
-        tenant_ids = ['foo-id', 'bar-id']
+        tenant_ids = [str(uuid.uuid4()), str(uuid.uuid4())]
+
         def _fake_foos_list(**kwargs):
             expected_args = {'count': True,
                              'detail': False}
@@ -170,7 +173,7 @@ class TestResourceGetHandler(TestContrailBase):
         self.assertEqual(8, res_count)
 
     def test__resource_count_optimized_fip(self):
-        tenant_ids = ['foo-id', 'bar-id']
+        tenant_ids = [str(uuid.uuid4()), str(uuid.uuid4())]
         self.get_handler.resource_list_method = 'floating_ips_list'
 
         def _fake_fip_list(**kwargs):
@@ -260,8 +263,8 @@ class TestInstanceIpHandler(TestContrailBase):
     def test_create_instance_ip(self):
         self.vnc_lib.instance_ip_create.return_value = 'foo-id'
         with contextlib.nested(
-            mock.patch.object(vnc_api.InstanceIp,'set_instance_ip_address'),
-            mock.patch.object(vnc_api.InstanceIp,'set_subnet_uuid')
+            mock.patch.object(vnc_api.InstanceIp, 'set_instance_ip_address'),
+            mock.patch.object(vnc_api.InstanceIp, 'set_subnet_uuid')
         ) as (fake_set_iip, fake_set_subnet):
             iip_uuid = self.ip_handler.create_instance_ip(mock.Mock(),
                                                           mock.Mock(),
@@ -269,4 +272,3 @@ class TestInstanceIpHandler(TestContrailBase):
             self.assertEqual('foo-id', iip_uuid)
             fake_set_iip.assert_called_once_with('10.0.0.3')
             self.assertFalse(fake_set_subnet.called)
-
