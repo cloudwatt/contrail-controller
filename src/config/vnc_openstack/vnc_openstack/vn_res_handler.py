@@ -219,9 +219,17 @@ class VNetworkCreateHandler(res_handler.ResourceCreateHandler, VNetworkMixin):
     resource_create_method = 'virtual_network_create'
 
     def create_vn_obj(self, network_q):
+        if 'tenant_id' not in network_q:
+            db_handler.DBInterfaceV2._raise_contrail_exception(
+                'BadRequest', resource='virtual_network',
+                msg="'tenant_id' is mandator")
         net_name = network_q.get('name', None)
         project_id = str(uuid.UUID(network_q['tenant_id']))
-        proj_obj = self._project_read(proj_id=project_id)
+        try:
+            proj_obj = self._project_read(proj_id=project_id)
+        except vnc_exc.NoIdError:
+            db_handler.DBInterfaceV2._raise_contrail_exception(
+                'ProjectNotFound', project_id=project_id)
         id_perms = vnc_api.IdPermsType(enable=True)
         vn_obj = vnc_api.VirtualNetwork(net_name, proj_obj,
                                         id_perms=id_perms)
@@ -239,10 +247,7 @@ class VNetworkCreateHandler(res_handler.ResourceCreateHandler, VNetworkMixin):
 
         return vn_obj
 
-    def resource_create(self, **kwargs):
-        network_q = kwargs.get('network_q')
-        contrail_extensions_enabled = kwargs.get('contrail_extensions_enabled',
-                                                 False)
+    def resource_create(self, network_q, contrail_extensions_enabled=False):
         vn_obj = self.neutron_dict_to_vn(self.create_vn_obj(network_q),
                                          network_q)
         self._resource_create(vn_obj)
@@ -287,7 +292,12 @@ class VNetworkUpdateHandler(res_handler.ResourceUpdateHandler, VNetworkMixin):
                         network=vn_obj.display_name)
 
     def get_vn_obj(self, network_q):
-        vn_obj = self._resource_get(id=network_q['id'])
+        try:
+            vn_obj = self._resource_get(id=network_q['id'])
+        except vnc_exc.NoIdError:
+            raise db_handler.DBInterfaceV2._raise_contrail_exception(
+                'NetwrokNotFound',
+                net_id=network_q['id'])
         router_external = network_q.get('router:external')
         if router_external is not None:
             if router_external != vn_obj.router_external:
@@ -302,12 +312,7 @@ class VNetworkUpdateHandler(res_handler.ResourceUpdateHandler, VNetworkMixin):
 
         return vn_obj
 
-    def resource_update(self, **kwargs):
-        net_id = kwargs.get('net_id')
-        network_q = kwargs.get('network_q')
-        contrail_extensions_enabled = kwargs.get('contrail_extensions_enabled',
-                                                 True)
-
+    def resource_update(self, net_id, network_q, contrail_extensions_enabled=True):
         network_q['id'] = net_id
         vn_obj = self.neutron_dict_to_vn(self.get_vn_obj(network_q), network_q)
         self._resource_update(vn_obj)
@@ -371,11 +376,8 @@ class VNetworkGetHandler(res_handler.ResourceGetHandler, VNetworkMixin):
         return ret_list
     # end _network_list_shared
 
-    def resource_list(self, **kwargs):
-        context = kwargs.get('context')
-        filters = kwargs.get('filters')
-        contrail_exts_enabled = kwargs.get(
-            'contrail_extensions_enabled', False)
+    def resource_list(self, context, filters, contrail_extensions_enabled=False):
+        contrail_exts_enabled = contrail_extensions_enabled
         ret_dict = {}
 
         def _collect_without_prune(net_ids):
@@ -488,8 +490,7 @@ class VNetworkGetHandler(res_handler.ResourceGetHandler, VNetworkMixin):
 
         return ret_list
 
-    def resource_get(self, **kwargs):
-        net_uuid = kwargs.get('net_uuid')
+    def resource_get(self, net_uuid, contrail_extensions_enabled=True):
         try:
             vn_obj = self._resource_get(id=net_uuid)
         except vnc_exc.NoIdError:
@@ -497,15 +498,14 @@ class VNetworkGetHandler(res_handler.ResourceGetHandler, VNetworkMixin):
                 'NetworkNotFound', net_id=net_uuid)
 
         return self.vn_to_neutron_dict(
-            vn_obj, kwargs.get('contrail_extensions_enabled', True))
+            vn_obj, contrail_extensions_enabled)
 
-    def resource_count(self, **kwargs):
-        filters = kwargs.get('filters')
+    def resource_count(self, filters):
         count = self._resource_count_optimized(filters)
         if count is not None:
             return count
 
-        nets_info = self.resource_list(filters=filters)
+        nets_info = self.resource_list(context=None, filters=filters)
         return len(nets_info)
 
     def get_vn_list_project(self, project_id, count=False):
@@ -539,8 +539,7 @@ class VNetworkGetHandler(res_handler.ResourceGetHandler, VNetworkMixin):
 class VNetworkDeleteHandler(res_handler.ResourceDeleteHandler):
     resource_delete_method = 'virtual_network_delete'
 
-    def resource_delete(self, **kwargs):
-        net_id = kwargs.get('net_id')
+    def resource_delete(self, net_id):
         try:
             vn_obj = self._resource_get(id=net_id)
         except vnc_api.NoIdError:

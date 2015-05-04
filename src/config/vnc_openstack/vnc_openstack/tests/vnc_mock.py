@@ -29,10 +29,12 @@ class MockVnc(object):
         return (method[:rin], method[rin+1:])
 
     class Callables(object):
-        def __init__(self, resource_type, resource, resource_collection):
+        def __init__(self, resource_type, resource,
+                     resource_collection, server_conn):
             self._resource_type = resource_type.replace('_', '-')
             self._resource = resource
             self._resource_collection = resource_collection
+            self._server_conn = server_conn
 
     class ReadCallables(Callables):
         def __call__(self, **kwargs):
@@ -103,14 +105,17 @@ class MockVnc(object):
             if not obj:
                 raise ValueError("Create called with null object")
             uuid = getattr(obj, 'uuid', None)
+            obj._server_conn = self._server_conn
             if not uuid:
                 uuid = obj.uuid = str(UUID.uuid4())
 
             if hasattr(obj, 'parent_type'):
                 rc = MockVnc.ReadCallables(
                     obj.parent_type,
-                    self._resource_collection[obj.parent_type],
-                    self._resource_collection)
+                    self._resource_collection[
+                        obj.parent_type.replace("-", "_")],
+                    self._resource_collection,
+                    self._server_conn)
                 parent = rc(fq_name=obj.fq_name[:-1])
                 obj.parent_uuid = parent.uuid
 
@@ -139,7 +144,7 @@ class MockVnc(object):
                                     'to': back_ref_obj.get_fq_name()}
                         back_ref_name = ("%s_back_refs"
                                          % back_ref_name.replace("-", "_"))
-                        if hasattr(ref_obj, back_ref_name):
+                        if hasattr(ref_obj, back_ref_name) and getattr(ref_obj, back_ref_name):
                             getattr(ref_obj, back_ref_name).append(back_ref)
                         else:
                             setattr(ref_obj, back_ref_name, [back_ref])
@@ -268,7 +273,7 @@ class MockVnc(object):
 
         return callables_map[action](
             resource, self.resources_collection[resource],
-            self.resources_collection)
+            self.resources_collection, self)
 
     def _obj_serializer_all(self, obj):
         if hasattr(obj, 'serialize_to_json'):
