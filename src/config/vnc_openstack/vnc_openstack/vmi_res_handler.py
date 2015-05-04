@@ -377,7 +377,8 @@ class VMInterfaceMixin(object):
                     'BadRequest', resource='port',
                     msg='Invalid address pair argument')
 
-            aap_array.append(vnc_api.AllowedAddressPair(subnet,
+            aap_array.append(vnc_api.AllowedAddressPair(
+                subnet,
                 address_pair['mac_address'], mode))
 
         aaps = vnc_api.AllowedAddressPairs()
@@ -553,7 +554,7 @@ class VMInterfaceCreateHandler(res_handler.ResourceCreateHandler,
 
     def resource_create(self, context, port_q, apply_subnet_host_routes=False):
         if 'network_id' not in port_q or \
-            'tenant_id' not in port_q:
+                'tenant_id' not in port_q:
             raise db_handler.DBInterfaceV2._raise_contrail_exception(
                 'BadRequest', resource='vmi',
                 msg="'tenant_id' and 'network_id' are mandatory")
@@ -629,7 +630,8 @@ class VMInterfaceUpdateHandler(res_handler.ResourceUpdateHandler,
                                VMInterfaceMixin):
     resource_update_method = 'virtual_machine_interface_update'
 
-    def resource_update(self, port_id, port_q, contrail_entension_enabled=False):
+    def resource_update(self, port_id, port_q,
+                        contrail_entension_enabled=False):
         port_q['id'] = port_id
         vmi_obj = self._neutron_port_to_vmi(port_q)
         net_id = vmi_obj.get_virtual_network_refs()[0]['uuid']
@@ -872,7 +874,7 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
 
         return ret_port_q
 
-    def resource_count(self, filters=None):
+    def resource_count(self, context, filters=None):
         count = self._resource_count_optimized(filters)
         if count is not None:
             return count
@@ -891,7 +893,7 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
         else:
             # across all projects - TODO() very expensive,
             # get only a count from api-server!
-            nports = len(self.resource_list(filters=filters))
+            nports = len(self.resource_list(context, filters=filters))
 
         return nports
 

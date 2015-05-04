@@ -1,11 +1,8 @@
-from neutron.common import constants as n_constants
 from vnc_openstack import vmi_res_handler as vmi_handler
 from vnc_openstack import subnet_res_handler as subnet_handler
-from vnc_openstack import contrail_res_handler as res_handler
 from vnc_openstack.tests import test_common
 from vnc_api import vnc_api
 import bottle
-import uuid
 
 
 class TestVmiHandlers(test_common.TestBase):
@@ -60,7 +57,8 @@ class TestVmiHandlers(test_common.TestBase):
         self._test_check_create(entries)
 
         # create with the same mac id
-        vmis = self._test_vnc_lib.virtual_machine_interfaces_list()['virtual-machine-interfaces']
+        vmis = self._test_vnc_lib.virtual_machine_interfaces_list()[
+            'virtual-machine-interfaces']
         self.assertEqual(len(vmis), 1)
         mac = vmis[0]['virtual_machine_interface_mac_addresses'].mac_address[0]
 
@@ -97,7 +95,8 @@ class TestVmiHandlers(test_common.TestBase):
                     'cidr': cidr,
                     'ip_version': 4,
                     'network_id': str(net_obj.uuid)}
-        ret = subnet_handler.SubnetHandler(self._test_vnc_lib).resource_create(subnet_q)
+        ret = subnet_handler.SubnetHandler(
+            self._test_vnc_lib).resource_create(subnet_q)
         subnet_uuid = ret['id']
         return subnet_uuid
 
@@ -130,7 +129,7 @@ class TestVmiHandlers(test_common.TestBase):
         return res[0]['id']
 
     def _port_count_check(self, exp_count):
-        entries = {'input': {'filters': None},
+        entries = {'input': {'filters': None, 'context': None},
                    'output': exp_count}
 
         self._test_check_count([entries])
@@ -148,10 +147,10 @@ class TestVmiHandlers(test_common.TestBase):
                                            proj_obj=self.proj_obj,
                                            with_fixed_ip=True,
                                            subnet_uuid=subnet_uuid)
-        port_id_2 = self._create_test_port('test-port-2',
-                                           net_obj=net_obj,
-                                           proj_obj=self.proj_obj,
-                                           with_fixed_ip=False)
+        self._create_test_port('test-port-2',
+                               net_obj=net_obj,
+                               proj_obj=self.proj_obj,
+                               with_fixed_ip=False)
         self._port_count_check(2)
 
         self._handler.resource_delete(port_id_1)
@@ -181,7 +180,7 @@ class TestVmiHandlers(test_common.TestBase):
                 'security_groups': [],
                 'device_owner': 'vm',
                 'device_id': 'test-instance-1',
-                'fixed_ips': [{'subnet_id': subnet_uuid, 
+                'fixed_ips': [{'subnet_id': subnet_uuid,
                                'ip_address': '192.168.1.10'}],
                 'allowed_address_pairs': [{'ip_address': "10.0.0.0/24"},
                                           {'ip_address': "192.168.1.4"}],
@@ -195,8 +194,8 @@ class TestVmiHandlers(test_common.TestBase):
                        'extra_dhcp_opts': [{'opt_value': '8.8.8.8',
                                             'opt_name': '4'}],
                        'allowed_address_pairs': [
-                            {'ip_address': '10.0.0.0/24'},
-                            {'ip_address': '192.168.1.4'}]}}]
+                           {'ip_address': '10.0.0.0/24'},
+                           {'ip_address': '192.168.1.4'}]}}]
         self._test_check_update(entries)
 
         sg_rules = vnc_api.PolicyEntriesType()
@@ -207,8 +206,10 @@ class TestVmiHandlers(test_common.TestBase):
         self._test_vnc_lib.security_group_create(sg_obj)
         entries[0]['input']['port_q']['security_groups'] = [sg_obj.uuid]
         entries[0]['input']['port_q']['device_id'] = 'test-instance-2'
-        entries[0]['input']['port_q']['fixed_ips'][0]['ip_address'] = '192.168.1.11'
+        entries[0]['input']['port_q'][
+            'fixed_ips'][0]['ip_address'] = '192.168.1.11'
         entries[0]['output']['security_groups'] = [sg_obj.uuid]
+        entries[0]['output']['fixed_ips'] = [{'ip_address': '192.168.1.11'}]
 
         self._test_check_update(entries)
 
@@ -239,23 +240,23 @@ class TestVmiHandlers(test_common.TestBase):
         net_obj_1 = vnc_api.VirtualNetwork('test-net-1', proj_1)
         self._test_vnc_lib.virtual_network_create(net_obj_1)
         subnet_uuid_1 = self._create_test_subnet('test-subnet-1', net_obj_1)
-        port_id_1 = self._create_test_port('test-port-1',
-                                           net_obj_1,
-                                           proj_obj=proj_1,
-                                           with_fixed_ip=True,
-                                           subnet_uuid=subnet_uuid_1)
+        self._create_test_port('test-port-1',
+                               net_obj_1,
+                               proj_obj=proj_1,
+                               with_fixed_ip=True,
+                               subnet_uuid=subnet_uuid_1)
 
         proj_2 = self._project_create('proj_2')
         net_obj_2 = vnc_api.VirtualNetwork('test-net-2', proj_2)
         self._test_vnc_lib.virtual_network_create(net_obj_2)
         subnet_uuid_2 = self._create_test_subnet(
             'test-subnet-2', net_obj_2, '192.168.2.0/24')
-        port_id_1 = self._create_test_port('test-port-2',
-                                           net_obj_2,
-                                           proj_obj=proj_2,
-                                           with_fixed_ip=True,
-                                           subnet_uuid=subnet_uuid_2,
-                                           ip_address='192.168.2.3')
+        self._create_test_port('test-port-2',
+                               net_obj_2,
+                               proj_obj=proj_2,
+                               with_fixed_ip=True,
+                               subnet_uuid=subnet_uuid_2,
+                               ip_address='192.168.2.3')
 
         entries = [
             # non admin context, with default tenant in context
@@ -278,7 +279,7 @@ class TestVmiHandlers(test_common.TestBase):
                                   self._uuid_to_str(proj_2.uuid)]}},
                 'output': [{'name': 'test-port-1'}, {'name': 'test-port-2'}]},
 
-            # non-admin context with proj-1 and with filters of net-2 and proj_1
+            # non-admin context with proj1 and with filters of net2 and proj1
             {'input': {
                 'context': {
                     'tenant': self._uuid_to_str(proj_1.uuid),
@@ -300,3 +301,36 @@ class TestVmiHandlers(test_common.TestBase):
                     'network_id': [str(net_obj_2.uuid)]}},
                 'output': [{'name': 'test-port-2'}]}]
         self._test_check_list(entries)
+
+    def test_count(self):
+        proj_1 = self._project_create('proj-1')
+        net_obj_1 = vnc_api.VirtualNetwork('test-net-1', proj_1)
+        self._test_vnc_lib.virtual_network_create(net_obj_1)
+        subnet_uuid_1 = self._create_test_subnet('test-subnet-1', net_obj_1)
+        self._create_test_port('test-port-1',
+                               net_obj_1,
+                               proj_obj=proj_1,
+                               with_fixed_ip=True,
+                               subnet_uuid=subnet_uuid_1)
+
+        proj_2 = self._project_create('proj_2')
+        net_obj_2 = vnc_api.VirtualNetwork('test-net-2', proj_2)
+        self._test_vnc_lib.virtual_network_create(net_obj_2)
+        subnet_uuid_2 = self._create_test_subnet(
+            'test-subnet-2', net_obj_2, '192.168.2.0/24')
+        self._create_test_port('test-port-2',
+                               net_obj_2,
+                               proj_obj=proj_2,
+                               with_fixed_ip=True,
+                               subnet_uuid=subnet_uuid_2,
+                               ip_address='192.168.2.3')
+        context = {
+            'tenant': self._uuid_to_str(proj_2.uuid),
+            'is_admin': True}
+        entries = [{
+            'input': {'filters': {
+                'network_id': str(net_obj_2.uuid),
+                'tenant_id': self._uuid_to_str(proj_2.uuid)},
+                'context': context},
+            'output': 1}]
+        self._test_check_count(entries)
