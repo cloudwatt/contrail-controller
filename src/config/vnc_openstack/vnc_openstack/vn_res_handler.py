@@ -312,7 +312,8 @@ class VNetworkUpdateHandler(res_handler.ResourceUpdateHandler, VNetworkMixin):
 
         return vn_obj
 
-    def resource_update(self, net_id, network_q, contrail_extensions_enabled=True):
+    def resource_update(self, net_id, network_q,
+                        contrail_extensions_enabled=True):
         network_q['id'] = net_id
         vn_obj = self.neutron_dict_to_vn(self.get_vn_obj(network_q), network_q)
         self._resource_update(vn_obj)
@@ -376,7 +377,8 @@ class VNetworkGetHandler(res_handler.ResourceGetHandler, VNetworkMixin):
         return ret_list
     # end _network_list_shared
 
-    def resource_list(self, context, filters, contrail_extensions_enabled=False):
+    def resource_list(self, context, filters,
+                      contrail_extensions_enabled=False):
         contrail_exts_enabled = contrail_extensions_enabled
         ret_dict = {}
 
