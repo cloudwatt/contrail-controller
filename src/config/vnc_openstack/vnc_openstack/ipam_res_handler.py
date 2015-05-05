@@ -30,7 +30,7 @@ class IPamMixin(object):
         ipam_q_dict['name'] = ipam_obj.name
         ipam_q_dict['tenant_id'] = ipam_obj.parent_uuid.replace('-', '')
         ipam_q_dict['mgmt'] = ipam_q_dict.pop('network_ipam_mgmt', None)
-        net_back_refs = ipam_q_dict.pop('virtual_network_back_refs', None)
+        net_back_refs = ipam_obj.get_virtual_network_back_refs()
         if net_back_refs:
             ipam_q_dict['nets_using'] = []
             for net_back_ref in net_back_refs:
@@ -41,7 +41,7 @@ class IPamMixin(object):
     # end _ipam_vnc_to_neutron
 
     def _ipam_neutron_to_vnc(self, ipam_q, ipam_obj):
-        if ipam_q['mgmt']:
+        if 'mgmt' in ipam_q and ipam_q['mgmt']:
             ipam_obj.set_network_ipam_mgmt(
                 vnc_api.IpamType.factory(**ipam_q['mgmt']))
 
@@ -69,10 +69,7 @@ class IPamGetHandler(IPamBaseGet, IPamMixin):
         return self._ipam_vnc_to_neutron(ipam_obj)
 
     def resource_list_by_project(self, project_id):
-        try:
-            project_uuid = str(uuid.UUID(project_id))
-        except Exception:
-            print "Error in converting uuid %s" % (project_id)
+        project_uuid = str(uuid.UUID(project_id))
 
         resp_dict = self._resource_list(parent_id=project_uuid)
         return resp_dict['network-ipams']
@@ -121,8 +118,12 @@ class IPamUpdateHandler(res_handler.ResourceUpdateHandler,
     resource_update_method = "network_ipam_update"
 
     def resource_update(self, ipam_id, ipam_q):
-        ipam_obj = self._ipam_neutron_to_vnc(
-            ipam_q, self._resource_get(id=ipam_id))
+        try:
+            ipam_obj = self._ipam_neutron_to_vnc(
+                ipam_q, self._resource_get(id=ipam_id))
+        except vnc_exc.NoIdError:
+            raise db_handler.DBInterfaceV2._raise_contrail_exception(
+                'IpamNotFound', ipam_id=ipam_id)
         self._resource_update(ipam_obj)
 
         return self._ipam_vnc_to_neutron(ipam_obj)
@@ -141,7 +142,11 @@ class IPamCreateHandler(res_handler.ResourceCreateHandler):
     def resource_create(self, ipam_q):
         ipam_name = ipam_q.get('name', None)
         project_id = str(uuid.UUID(ipam_q['tenant_id']))
-        project_obj = self._project_read(proj_id=project_id)
+        try:
+            project_obj = self._project_read(proj_id=project_id)
+        except vnc_exc.NoIdError:
+            raise db_handler.DBInterfaceV2._raise_contrail_exception(
+                "ProjectNotFound", project_id=project_id)
 
         ipam_obj = self._ipam_neutron_to_vnc(
             ipam_q, vnc_api.NetworkIpam(ipam_name, project_obj))
