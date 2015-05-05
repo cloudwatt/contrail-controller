@@ -3,7 +3,6 @@ from vnc_openstack import vmi_res_handler as vmi_handler
 from vnc_openstack import route_table_res_handler as route_table_handler
 from vnc_openstack import subnet_res_handler as subnet_handler
 from vnc_openstack.tests import test_common
-from vnc_api import vnc_api
 import bottle
 
 
@@ -28,7 +27,7 @@ class TestVnHandlers(test_common.TestBase):
                 'shared': False,
                 'subnets': []
             }
-        },{
+        }, {
             'input': {
                 'contrail_extensions_enabled': True,
                 'network_q': {
@@ -40,14 +39,17 @@ class TestVnHandlers(test_common.TestBase):
             'output': {
                 'router:external': True,
                 'shared': True,
-                'contrail:fq_name': ['default-domain','default-project', 'default-network']
+                'contrail:fq_name': ['default-domain',
+                                     'default-project',
+                                     'default-network']
             }
         }]
         self._test_check_create(entries)
 
     def _create_network(self, name, proj, router_external=False, shared=False):
         res = vn_handler.VNetworkHandler(self._test_vnc_lib).resource_create(
-            {'name': name,'tenant_id': self._uuid_to_str(proj.uuid),
+            {'name': name,
+             'tenant_id': self._uuid_to_str(proj.uuid),
              'router:external': router_external,
              'shared': shared
              })
@@ -70,7 +72,7 @@ class TestVnHandlers(test_common.TestBase):
         subnet_uuid = self._create_test_subnet(
             'test-subnet',
             self._test_vnc_lib.resources_collection['virtual_network'][net_id])
-        route_res = route_table_handler.RouteTableHandler(
+        route_table_handler.RouteTableHandler(
             self._test_vnc_lib).resource_create(
             {'name': 'test-route-table',
              'routes': [],
@@ -83,7 +85,7 @@ class TestVnHandlers(test_common.TestBase):
         port_q = {'name': 'test-port',
                   'network_id': str(net_id),
                   'tenant_id': context['tenant_id']}
-        vmi_res = vmi_handler.VMInterfaceHandler(
+        vmi_handler.VMInterfaceHandler(
             self._test_vnc_lib).resource_create(
             context, port_q)
 
@@ -115,7 +117,7 @@ class TestVnHandlers(test_common.TestBase):
                                           'default-project',
                                           'test-route-table']]
             }
-        },{
+        }, {
             # router:external flapping
             'input': {
                 'net_id': net_id,
@@ -129,7 +131,7 @@ class TestVnHandlers(test_common.TestBase):
                 'subnets': [subnet_uuid],
                 'router:externa': False,
             }
-        },{
+        }, {
             # invalid route_table entry
             'input': {
                 'net_id': net_id,
@@ -140,7 +142,7 @@ class TestVnHandlers(test_common.TestBase):
                 }
             },
             'output': bottle.HTTPError
-        },{
+        }, {
             # invalid use-case for shared attribute
             'input': {
                 'net_id': net_id,
@@ -164,64 +166,69 @@ class TestVnHandlers(test_common.TestBase):
     def test_list(self):
         proj_1 = self._project_create('proj-1')
         vn_normal = self._create_network('test-net', self.proj_obj)
-        subnet_uuid = self._create_test_subnet(
+        self._create_test_subnet(
             'test-subnet',
-            self._test_vnc_lib.resources_collection['virtual_network'][vn_normal])
-        vn_normal_pr1 = self._create_network('test-net-pr1', proj_1)
-        vn_re = self._create_network('test-re', proj_1, router_external=True)
-        vn_shared = self._create_network('test-sh', proj_1, shared=True)
+            self._test_vnc_lib.resources_collection[
+                'virtual_network'][vn_normal])
+        self._create_network('test-net-pr1', proj_1)
+        self._create_network('test-re', proj_1, router_external=True)
+        self._create_network('test-sh', proj_1, shared=True)
 
         context = {'tenant': self._uuid_to_str(proj_1.uuid),
                    'is_admin': False}
-        entries = [{ # 0
+        entries = [{  # 0
             'input': {
                 'context': context,
                 'filters': {'name': 'test-net'}
             },
             'output': []
-        }, { # 1
+        }, {  # 1
             'input': {
                 'context': context,
                 'filters': {'name': 'test-re'}
             },
             'output': [{'name': 'test-re'}]
-        }, { # 2
+        }, {  # 2
             'input': {
                 'context': context,
                 'filters': {'router:external': [True]}
             },
             'output': [{'name': 'test-re'}]
-        }, { # 3
+        }, {  # 3
             'input': {
                 'context': context,
-                'filters': {'name': 'test-re', 'router:external': [True], 'shared': [True]}
+                'filters': {'name': 'test-re',
+                            'router:external': [True],
+                            'shared': [True]}
             },
             'output': []
-        }, { # 4
+        }, {  # 4
             'input': {
                 'context': context,
                 'filters': {'shared': [True]}
             },
             'output': [{'name': 'test-sh'}]
-        }, { # 5
+        }, {  # 5
             'input': {
                 'context': context,
                 'filters': {'shared': [True], 'router:external': [True]}
             },
             'output': []
-        }, { # 6
+        }, {  # 6
             'input': {
                 'context': context,
                 'filters': {'id': [vn_normal]}
             },
             'output': [{'name': 'test-net'}]
-        }, { # 7
+        }, {  # 7
             'input': {
                 'context': context,
                 'filters': {}
             },
-            'output': [{'name': 'test-re'}, {'name': 'test-sh'}, {'test-net-pr1'}]
-        }, { # 8
+            'output': [{'name': 'test-re'},
+                       {'name': 'test-sh'},
+                       {'test-net-pr1'}]
+        }, {  # 8
             'input': {
                 'context': context,
                 'filters': {'tenant_id': [self._uuid_to_str(proj_1.uuid)],
@@ -255,11 +262,11 @@ class TestVnHandlers(test_common.TestBase):
 
     def test_count(self):
         proj_1 = self._project_create('proj-1')
-        vn_normal = self._create_network('test-net', self.proj_obj)
-        vn_re = self._create_network('test-re', proj_1, router_external=True)
-        vn_shared = self._create_network('test-sh', proj_1, shared=True)
+        self._create_network('test-net', self.proj_obj)
+        self._create_network('test-re', proj_1, router_external=True)
+        self._create_network('test-sh', proj_1, shared=True)
 
-        entries = [{ 
+        entries = [{
             'input': {
                 'filters': {}
             },
@@ -270,4 +277,3 @@ class TestVnHandlers(test_common.TestBase):
             },
             'output': 1}]
         self._test_check_count(entries)
-
