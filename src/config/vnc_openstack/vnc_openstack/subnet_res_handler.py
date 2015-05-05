@@ -586,7 +586,7 @@ class SubnetHostRoutesHandler(res_handler.ContrailResourceHandler,
                               SubnetMixin):
 
     @staticmethod
-    def _port_get_host_prefixes(self, host_routes, subnet_cidr):
+    def _port_get_host_prefixes(host_routes, subnet_cidr):
         """This function returns the host prefixes.
 
         Eg. If host_routes have the below routes
@@ -732,7 +732,7 @@ class SubnetHostRoutesHandler(res_handler.ContrailResourceHandler,
             return
 
         # get the list of all the ip objs for this network
-        ipobjs = self.self._vnc_lib.instance_ips_list(
+        ipobjs = self._vnc_lib.instance_ips_list(
             detail=True, back_ref_id=[vn_obj.uuid])
         back_ref_fields = ['logical_router_back_refs', 'instance_ip_back_refs',
                            'floating_ip_back_refs']

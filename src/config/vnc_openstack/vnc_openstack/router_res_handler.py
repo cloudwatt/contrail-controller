@@ -280,9 +280,7 @@ class LogicalRouterCreateHandler(res_handler.ResourceCreateHandler,
         return vnc_api.LogicalRouter(router_q.get('name'), project_obj,
                                      id_perms=id_perms)
 
-    def resource_create(self, **kwargs):
-        router_q = kwargs.get('router_q')
-
+    def resource_create(self, router_q, contrail_extensions_enabled=True):
         rtr_obj = self._neutron_dict_to_rtr_obj(
             router_q, self._create_router(router_q))
         rtr_uuid = self._resource_create(rtr_obj)
@@ -291,15 +289,14 @@ class LogicalRouterCreateHandler(res_handler.ResourceCreateHandler,
         rtr_obj = self._resource_get(id=rtr_uuid)
         self._router_add_gateway(router_q, rtr_obj)
         return self._rtr_obj_to_neutron_dict(
-            rtr_obj, kwargs.get('contrail_extensions_enabled', True))
+            rtr_obj, contrail_extensions_enabled=contrail_extensions_enabled)
 
 
 class LogicalRouterDeleteHandler(res_handler.ResourceDeleteHandler,
                                  LogicalRouterMixin):
     resource_delete_method = 'logical_router_delete'
 
-    def resource_delete(self, **kwargs):
-        rtr_id = kwargs.get('rtr_id')
+    def resource_delete(self, rtr_id):
         try:
             rtr_obj = self._resource_get(id=rtr_id)
             if rtr_obj.get_virtual_machine_interface_refs():
@@ -323,9 +320,7 @@ class LogicalRouterUpdateHandler(res_handler.ResourceUpdateHandler,
     def _get_rtr_obj(self, router_q):
         return self._resource_get(id=router_q.get('id'))
 
-    def resource_update(self, **kwargs):
-        router_q = kwargs.get('router_q')
-        rtr_id = kwargs.get('rtr_id')
+    def resource_update(self, router_q, rtr_id):
         router_q['id'] = rtr_id
         rtr_obj = self._neutron_dict_to_rtr_obj(
             router_q, self._get_rtr_obj(router_q))
@@ -393,8 +388,7 @@ class LogicalRouterGetHandler(res_handler.ResourceGetHandler,
                         port_net_id):
                     return router_obj.uuid
 
-    def resource_get(self, **kwargs):
-        rtr_uuid = kwargs.get('rtr_uuid')
+    def resource_get(self, rtr_uuid):
         try:
             rtr_obj = self._resource_get(id=rtr_uuid)
         except vnc_exc.NoIdError:
@@ -425,7 +419,7 @@ class LogicalRouterGetHandler(res_handler.ResourceGetHandler,
         if 'tenant_id' in filters:
             # read all routers in project, and prune below
             project_ids = db_handler.DBInterfaceV2._validate_project_ids(
-                filters['tenant_id'], context=context)
+                context, project_ids=filters['tenant_id'])
             for p_id in project_ids:
                 if 'router:external' in filters:
                     all_rtrs.append(self._fip_pool_ref_routers(p_id))
