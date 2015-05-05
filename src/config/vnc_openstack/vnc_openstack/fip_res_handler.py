@@ -22,6 +22,7 @@ from vnc_api import vnc_api
 import contrail_res_handler as res_handler
 import router_res_handler as router_handler
 import vmi_res_handler as vmi_handler
+import neutron_plugin_db_handler as db_handler
 
 
 class FloatingIpMixin(object):
@@ -37,7 +38,7 @@ class FloatingIpMixin(object):
         if port_id:
             vmi_obj = vmi_get_handler._resource_get(id=port_id)
 
-            if is_admin:
+            if not is_admin:
                 vmi_tenant_id = vmi_get_handler.get_vmi_tenant_id(vmi_obj)
                 if vmi_tenant_id != tenant_id:
                     self._raise_contrail_exception('PortNotFound',
@@ -136,10 +137,7 @@ class FloatingIpCreateHandler(res_handler.ResourceCreateHandler,
         fip_obj.set_project(proj_obj)
         return fip_obj
 
-    def resource_create(self, **kwargs):
-        context = kwargs.get('context')
-        fip_q = kwargs.get('fip_q')
-
+    def resource_create(self, context, fip_q):
         try:
             fip_obj = self._create_fip_obj(fip_q)
             fip_obj = self._neutron_dict_to_fip_obj(fip_q, context['is_admin'],
@@ -164,8 +162,7 @@ class FloatingIpCreateHandler(res_handler.ResourceCreateHandler,
 class FloatingIpDeleteHandler(res_handler.ResourceDeleteHandler):
     resource_delete_method = 'floating_ip_delete'
 
-    def resource_delete(self, **kwargs):
-        fip_id = kwargs.get('fip_id')
+    def resource_delete(self, fip_id):
         self._resource_delete(id=fip_id)
 
 
@@ -173,11 +170,8 @@ class FloatingIpUpdateHandler(res_handler.ResourceUpdateHandler,
                               FloatingIpMixin):
     resource_update_method = 'floating_ip_update'
 
-    def resource_update(self, **kwargs):
-        fip_id = kwargs.get('fip_id')
-        fip_q = kwargs.get('fip_q')
+    def resource_update(self, context, fip_id, fip_q):
         fip_q['id'] = fip_id
-        context = kwargs.get('context')
         fip_obj = self._neutron_dict_to_fip_obj(fip_q, context['is_admin'],
                                                 context['tenant'])
         self._resource_update(fip_obj)
@@ -188,19 +182,16 @@ class FloatingIpGetHandler(res_handler.ResourceGetHandler, FloatingIpMixin):
     resource_list_method = 'floating_ips_list'
     resource_get_method = 'floating_ip_read'
 
-    def resource_get(self, **kwargs):
+    def resource_get(self, fip_uuid):
         try:
-            fip_obj = self._resource_get(id=kwargs.get('fip_uuid'))
+            fip_obj = self._resource_get(id=fip_uuid)
         except vnc_exc.NoIdError:
             self._raise_contrail_exception('FloatingIPNotFound',
-                                           floatingip_id=fip_obj.uuid)
+                                           floatingip_id=fip_uuid)
 
         return self._fip_obj_to_neutron_dict(fip_obj)
 
-    def resource_list(self, **kwargs):
-        filters = kwargs.get('filters')
-        context = kwargs.get('context')
-
+    def resource_list(self, context, filters=None):
         # Read in floating ips with either
         # - port(s) as anchor
         # - project(s) as anchor
@@ -211,8 +202,8 @@ class FloatingIpGetHandler(res_handler.ResourceGetHandler, FloatingIpMixin):
         port_ids = None
         if filters:
             if 'tenant_id' in filters:
-                proj_ids = self._validate_project_ids(context,
-                                                      filters['tenant_id'])
+                proj_ids = db_handler.DBInterfaceV2._validate_project_ids(
+                    context, filters['tenant_id'])
             elif 'port_id' in filters:
                 port_ids = filters['port_id']
         else:  # no filters
@@ -235,13 +226,12 @@ class FloatingIpGetHandler(res_handler.ResourceGetHandler, FloatingIpMixin):
 
         return ret_list
 
-    def resource_count(self, **kwargs):
-        filters = kwargs.get('filters')
+    def resource_count(self, context, filters):
         count = self._resource_count_optimized(filters)
         if count is not None:
             return count
 
-        floatingip_info = self.resource_list(**kwargs)
+        floatingip_info = self.resource_list(context=context, filters=filters)
         return len(floatingip_info)
 
 

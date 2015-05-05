@@ -84,6 +84,10 @@ class MockVnc(object):
                         for f in back_ref_field:
                             if f['uuid'] in back_ref_id:
                                 ret.append(res)
+
+                            if field == 'project_refs':
+                                if f['uuid'].replace('-', '') in back_ref_id:
+                                    ret.append(res)
             else:
                 for res in set(self._resource.values()):
                     ret.append(res)
@@ -304,3 +308,9 @@ class MockVnc(object):
 
     def kv_delete(self, key):
         return self._kv_dict.pop(key, None)
+
+    def fq_name_to_id(self, resource, fq_name):
+        res = resource.replace("-", "_")
+        fq_name_str = ":".join(fq_name)
+        obj = self.resources_collection[res].get(fq_name_str, None)
+        return obj.uuid if obj else None
