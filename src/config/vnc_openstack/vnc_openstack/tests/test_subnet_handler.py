@@ -158,7 +158,7 @@ class TestSubnetHandlers(test_common.TestBase):
                     'enable_dhcp': True,
                     'network_id': str(net_obj.uuid),
                     'allocation_pools': [{'start': '192.168.1.100',
-                                          'end': '192.168.1.1.130'}],
+                                          'end': '192.168.1.130'}],
                     'gateway_ip': '192.168.1.4'}
         output = {'name': 'test-subnet',
                   'network_id': net_obj.uuid,
@@ -269,7 +269,7 @@ class TestSubnetHandlers(test_common.TestBase):
                                   'subnet_id': subnet_uuid},
                                  {'destination': '40.0.0.0/24',
                                   'nexthop': '192.168.1.30',
-                                  'subnet_id': subnet_uuid + 'CR'}]}
+                                  'subnet_id': subnet_uuid}]}
         entries = [{'input': {'subnet_id': subnet_uuid, 'subnet_q': subnet_q},
                     'output': exp_output}]
         self._test_check_update(entries)
@@ -283,7 +283,7 @@ class TestSubnetHandlers(test_common.TestBase):
                                   'subnet_id': subnet_uuid},
                                  {'destination': '40.0.0.0/24',
                                   'nexthop': '192.168.1.30',
-                                  'subnet_id': subnet_uuid + 'CR'}],
+                                  'subnet_id': subnet_uuid }],
                       'dns_nameservers': [{'address': '8.8.8.8',
                                            'subnet_id': subnet_uuid},
                                           {'address': '9.9.9.9',

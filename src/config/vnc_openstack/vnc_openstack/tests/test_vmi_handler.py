@@ -109,7 +109,6 @@ class TestVmiHandlers(test_common.TestBase):
                   'network_id': str(net_obj.uuid),
                   'tenant_id': context['tenant_id']}
 
-        subnet_uuid = None
         exp_output = {'name': name,
                       'network_id': net_obj.uuid}
         if with_fixed_ip:

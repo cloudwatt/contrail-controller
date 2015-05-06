@@ -1,6 +1,7 @@
 import unittest
 import uuid
 import bottle
+import netaddr
 from vnc_api import vnc_api
 from vnc_openstack.tests.vnc_mock import MockVnc
 
@@ -26,8 +27,23 @@ class TestBase(unittest.TestCase):
     def _generated(self):
         return 0xFF
 
-    def _uuid_to_str(self, uuid):
-        return str(uuid).replace('-', '')
+    def _uuid_to_str(self, uuid_str):
+        return str(uuid_str).replace('-', '')
+
+    def _is_mac(self, mac_str):
+        try:
+            netaddr.EUI(mac_str)
+        except Exception:
+            return False
+        return True
+            
+    def _is_uuid_or_mac(self, str):
+        try:
+            uuid.UUID(str)
+        except ValueError:
+            # check if its a mac address
+            return self._is_mac(str)
+        return True
 
     def _compare(self, verify, against):
         print " -- Checking %s *** against *** %s" % (verify, against)
@@ -40,8 +56,13 @@ class TestBase(unittest.TestCase):
         elif isinstance(verify, list):
             return self._compare_list(verify, against)
         else:
-            return verify in [against, self._generated()]
-
+            res = verify in [against, self._generated()]
+            if not res:
+                # just check if verify is uuid and against is 0xFF
+                if against == self._generated() and self._is_uuid_or_mac(verify):
+                    res = True
+            return res
+                    
     def _compare_list(self, verify, against):
         _against = list(against)
         if len(verify) != len(against):
