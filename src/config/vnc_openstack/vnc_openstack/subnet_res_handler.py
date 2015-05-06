@@ -137,7 +137,7 @@ class SubnetMixin(object):
         for alloc_obj in alloc_objs or []:
             first_ip = alloc_obj.get_start()
             last_ip = alloc_obj.get_end()
-            alloc_dict = {'start': first_ip, 'end': last_ip}
+            alloc_dict = {'first_ip': first_ip, 'last_ip': last_ip}
             allocation_pools.append(alloc_dict)
 
         if not allocation_pools:
@@ -147,7 +147,7 @@ class SubnetMixin(object):
             else:
                 first_ip = str(netaddr.IPNetwork(cidr).network + 1)
             last_ip = str(netaddr.IPNetwork(cidr).broadcast - 1)
-            cidr_pool = {'start': first_ip, 'end': last_ip}
+            cidr_pool = {'first_ip': first_ip, 'last_ip': last_ip}
             allocation_pools.append(cidr_pool)
 
         return allocation_pools

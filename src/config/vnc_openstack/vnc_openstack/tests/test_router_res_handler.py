@@ -12,9 +12,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import bottle
 from vnc_api import vnc_api
-
+from vnc_openstack import vmi_res_handler as vmi_handler
 from vnc_openstack import router_res_handler as router_handler
+from vnc_openstack import subnet_res_handler as subnet_handler
 from vnc_openstack.tests import test_common
 from vnc_openstack import vn_res_handler as vn_handler
 
@@ -179,3 +181,62 @@ class TestLogicalRouterHandler(test_common.TestBase):
                 'output': [{'name': 'p2-router-1'}]}]
 
         self._test_check_list(entries)
+
+    def _create_test_subnet(self, name, net_obj, cidr='192.168.1.0/24'):
+        subnet_q = {'name': name,
+                    'cidr': cidr,
+                    'ip_version': 4,
+                    'network_id': str(net_obj.uuid)}
+        ret = subnet_handler.SubnetHandler(
+            self._test_vnc_lib).resource_create(subnet_q)
+        subnet_uuid = ret['id']
+        return subnet_uuid
+
+    def _test_router_interface_helper(self):
+        router_id = self._create_test_router('test-router')
+        net_obj = vnc_api.VirtualNetwork('test-net', self.proj_obj)
+        self._test_vnc_lib.virtual_network_create(net_obj)
+        subnet_uuid = self._create_test_subnet('test-subnet', net_obj)
+        return router_id, subnet_uuid
+
+    def test_add_interface(self):
+        router_id, subnet_id = self._test_router_interface_helper()
+        rtr_iface_handler = router_handler.LogicalRouterInterfaceHandler(
+            self._test_vnc_lib)
+        context = {'tenant': self._uuid_to_str(self.proj_obj.uuid),
+                   'tenant_id': self._uuid_to_str(self.proj_obj.uuid),
+                   'is_admin': False}
+
+        self.assertRaises(bottle.HTTPError,
+                          rtr_iface_handler.add_router_interface, context,
+                          router_id)
+
+        returned_output = rtr_iface_handler.add_router_interface(
+            context, router_id, subnet_id=subnet_id)
+        expected_output = {'id': router_id, 'subnet_id': subnet_id,
+                           'tenant_id': context['tenant_id']}
+
+        # get the port list and see if gw port is created or not
+        port_list = vmi_handler.VMInterfaceHandler(
+            self._test_vnc_lib).resource_list(context)
+        self.assertEqual(1, len(port_list))
+        self.assertEqual('192.168.1.1',
+                         port_list[0]['fixed_ips'][0]['ip_address'])
+        expected_output['port_id'] = port_list[0]['id']
+        self.assertEqual(expected_output, returned_output)
+
+        # create a new router - router2 and attach the port_id of router-1
+        # to this. It should raise HTTPError exception
+        router_id_2 = self._create_test_router('test-router-2')
+        self.assertRaises(bottle.HTTPError,
+                          rtr_iface_handler.add_router_interface, context,
+                          router_id_2, subnet_id=subnet_id)
+
+    def test_add_interface_port_id(self):
+        router_id, subnet_id = self._test_router_interface_helper()
+        rtr_iface_handler = router_handler.LogicalRouterInterfaceHandler(
+            self._test_vnc_lib)
+        context = {'tenant': self._uuid_to_str(self.proj_obj.uuid),
+                   'tenant_id': self._uuid_to_str(self.proj_obj.uuid),
+                   'is_admin': False}
+

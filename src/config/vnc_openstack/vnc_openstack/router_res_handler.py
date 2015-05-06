@@ -602,18 +602,20 @@ class LogicalRouterInterfaceHandler(res_handler.ResourceGetHandler,
         port_req_memo = {'virtual-machines': {},
                          'instance-ips': {},
                          'subnets': {}}
-        rtr_uuid = self._vmi_handler.get_port_gw_id(vmi_obj,
-                                                    port_req_memo)
+        vm_ref = vmi_obj.get_virtual_machine_refs()
+        if vm_ref:
+            rtr_uuid = self._vmi_handler.get_port_gw_id(vm_ref[0],
+                                                        port_req_memo)
+        else:
+            rtr_uuid = None
+
         vn_obj = self._vnc_lib.virtual_network_read(id=net_id)
         fixed_ips = self._vmi_handler.get_vmi_ip_dict(vmi_obj, vn_obj,
                                                       port_req_memo)
         return vmi_obj, vn_obj, rtr_uuid, fixed_ips
 
-    def add_router_interface(self, **kwargs):
-        router_id = kwargs.get('router_id')
-        subnet_id = kwargs.get('subnet_id')
-        port_id = kwargs.get('port_id')
-        context = kwargs.get('context')
+    def add_router_interface(self, context, router_id, port_id=None,
+                             subnet_id=None):
         router_obj = self._resource_get(id=router_id)
 
         if not port_id and not subnet_id:
@@ -636,10 +638,8 @@ class LogicalRouterInterfaceHandler(res_handler.ResourceGetHandler,
                 'subnet_id': subnet_id}
         return info
 
-    def remove_router_interface(self, **kwargs):
-        router_id = kwargs.get('router_id')
-        subnet_id = kwargs.get('subnet_id')
-        port_id = kwargs.get('port_id')
+    def remove_router_interface(self, router_id, port_id=None,
+                                subnet_id=None):
         router_obj = self._resource_get(id=router_id)
         tenant_id = None
         vmi_obj = None

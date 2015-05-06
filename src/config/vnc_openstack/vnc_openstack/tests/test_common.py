@@ -48,9 +48,14 @@ class TestBase(unittest.TestCase):
             return False
 
         for v in verify:
+            res = True
             for index, a in enumerate(_against):
-                if self._compare(v, a):
+                res = self._compare(v, a)
+                if res:
                     break
+            if not res:
+                return False
+
             if index < len(_against):
                 _against.pop(index)
             else:
@@ -64,8 +69,10 @@ class TestBase(unittest.TestCase):
 
         for k, v in against.iteritems():
             if (k in verify):
-                if not self._compare(v, verify[k]):
+                if not self._compare(verify[k], v):
                     return False
+            else:
+                return False
         return True
 
     def _test_check(self, _handler_method, test_entries):
