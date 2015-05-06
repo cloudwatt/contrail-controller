@@ -388,7 +388,7 @@ class LogicalRouterGetHandler(res_handler.ResourceGetHandler,
                         port_net_id):
                     return router_obj.uuid
 
-    def resource_get(self, rtr_uuid):
+    def resource_get(self, rtr_uuid, fields=None):
         try:
             rtr_obj = self._resource_get(id=rtr_uuid)
         except vnc_exc.NoIdError:
@@ -547,6 +547,7 @@ class LogicalRouterInterfaceHandler(res_handler.ResourceGetHandler,
 
             subnet_id = fixed_ips[0]['subnet_id']
 
+
         subnet_vnc = self._subnet_handler._subnet_read(subnet_id=subnet_id)
         if not subnet_vnc.default_gateway:
             self._raise_contrail_exception(
@@ -602,12 +603,16 @@ class LogicalRouterInterfaceHandler(res_handler.ResourceGetHandler,
         port_req_memo = {'virtual-machines': {},
                          'instance-ips': {},
                          'subnets': {}}
-        vm_ref = vmi_obj.get_virtual_machine_refs()
-        if vm_ref:
-            rtr_uuid = self._vmi_handler.get_port_gw_id(vm_ref[0],
-                                                        port_req_memo)
+        router_refs = getattr(vmi_obj, 'logical_router_back_refs', None)
+        if router_refs:
+            rtr_uuid = router_refs[0]['uuid']
         else:
-            rtr_uuid = None
+            vm_ref = vmi_obj.get_virtual_machine_refs()
+            if vm_ref:
+                rtr_uuid = self._vmi_handler.get_port_gw_id(vm_ref[0],
+                                                            port_req_memo)
+            else:
+                rtr_uuid = None
 
         vn_obj = self._vnc_lib.virtual_network_read(id=net_id)
         fixed_ips = self._vmi_handler.get_vmi_ip_dict(vmi_obj, vn_obj,

@@ -192,15 +192,23 @@ class TestLogicalRouterHandler(test_common.TestBase):
         subnet_uuid = ret['id']
         return subnet_uuid
 
+    def _create_test_port(self, context, net_id, ip_address):
+        port_q = {'network_id': net_id,
+                  'tenant_id': context['tenant_id'],
+                  'fixed_ips': [{'ip_address': ip_address}]}
+        ret_port_q = vmi_handler.VMInterfaceHandler(
+            self._test_vnc_lib).resource_create(context, port_q)
+        return ret_port_q['id']
+
     def _test_router_interface_helper(self):
         router_id = self._create_test_router('test-router')
         net_obj = vnc_api.VirtualNetwork('test-net', self.proj_obj)
         self._test_vnc_lib.virtual_network_create(net_obj)
         subnet_uuid = self._create_test_subnet('test-subnet', net_obj)
-        return router_id, subnet_uuid
+        return router_id, subnet_uuid, net_obj.uuid
 
-    def test_add_interface(self):
-        router_id, subnet_id = self._test_router_interface_helper()
+    def test_add_remove_interface(self):
+        router_id, subnet_id, _ = self._test_router_interface_helper()
         rtr_iface_handler = router_handler.LogicalRouterInterfaceHandler(
             self._test_vnc_lib)
         context = {'tenant': self._uuid_to_str(self.proj_obj.uuid),
@@ -232,11 +240,59 @@ class TestLogicalRouterHandler(test_common.TestBase):
                           rtr_iface_handler.add_router_interface, context,
                           router_id_2, subnet_id=subnet_id)
 
-    def test_add_interface_port_id(self):
-        router_id, subnet_id = self._test_router_interface_helper()
+        # test remove_router_interface
+        returned_output = rtr_iface_handler.remove_router_interface(
+            router_id, subnet_id=subnet_id)
+        self.assertEqual(returned_output, expected_output)
+
+        # get the port list and see if gw port is deleted or not
+        port_list = vmi_handler.VMInterfaceHandler(
+            self._test_vnc_lib).resource_list(context)
+        self.assertEqual(0, len(port_list))
+
+        # removing again should raise HTTPError
+        self.assertRaises(bottle.HTTPError,
+                          rtr_iface_handler.remove_router_interface,
+                          router_id, subnet_id=subnet_id)
+
+    def test_add_remove_interface_port_id(self):
+        context = {'tenant': self._uuid_to_str(self.proj_obj.uuid),
+                   'tenant_id': self._uuid_to_str(self.proj_obj.uuid),
+                   'is_admin': False}
+        router_id, subnet_id, net_id = self._test_router_interface_helper()
         rtr_iface_handler = router_handler.LogicalRouterInterfaceHandler(
             self._test_vnc_lib)
         context = {'tenant': self._uuid_to_str(self.proj_obj.uuid),
                    'tenant_id': self._uuid_to_str(self.proj_obj.uuid),
                    'is_admin': False}
+        port_id = self._create_test_port(context, net_id, '192.168.1.10')
 
+        returned_output = rtr_iface_handler.add_router_interface(
+            context, router_id, port_id=port_id)
+        expected_output = {'id': router_id, 'subnet_id': subnet_id,
+                           'tenant_id': context['tenant_id'],
+                           'port_id': port_id}
+        self.assertEqual(expected_output, returned_output)
+        
+        iface_port_info = vmi_handler.VMInterfaceHandler(
+            self._test_vnc_lib).resource_get(port_id)
+        self.assertEqual('network:router_interface',
+                         iface_port_info['device_owner'])
+        #self.assertEqual(router_id, iface_port_info['device_id'])
+
+        # test remove_router_interface
+        """
+        returned_output = rtr_iface_handler.remove_router_interface(
+            router_id, port_id=port_id)
+        self.assertEqual(returned_output, expected_output)
+
+        # get the port list and see if port is deleted or not
+        port_list = vmi_handler.VMInterfaceHandler(
+            self._test_vnc_lib).resource_list(context)
+        self.assertEqual(1, len(port_list))
+        self.assertEqual('', iface_port_info['device_owner'])
+        # removing again should raise HTTPError
+        #self.assertRaises(bottle.HTTPError,
+        #                  rtr_iface_handler.remove_router_interface,
+        #                  router_id, subnet_id=subnet_id)
+        """

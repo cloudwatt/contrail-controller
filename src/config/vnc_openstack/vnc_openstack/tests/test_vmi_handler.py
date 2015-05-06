@@ -128,7 +128,7 @@ class TestVmiHandlers(test_common.TestBase):
         return res[0]['id']
 
     def _port_count_check(self, exp_count):
-        entries = {'input': {'filters': None, 'context': None},
+        entries = {'input': {'filters': None},
                    'output': exp_count}
 
         self._test_check_count([entries])
@@ -189,6 +189,8 @@ class TestVmiHandlers(test_common.TestBase):
             'output': {'name': 'test-port-updated',
                        'admin_state_up': False,
                        'id': port_id_1,
+                       #'device_id': 'test-instance-1',
+                       'device_owner': 'vm',
                        'security_groups': [self._generated()],
                        'extra_dhcp_opts': [{'opt_value': '8.8.8.8',
                                             'opt_name': '4'}],
@@ -329,7 +331,6 @@ class TestVmiHandlers(test_common.TestBase):
         entries = [{
             'input': {'filters': {
                 'network_id': str(net_obj_2.uuid),
-                'tenant_id': self._uuid_to_str(proj_2.uuid)},
-                'context': context},
+                'tenant_id': self._uuid_to_str(proj_2.uuid)}},
             'output': 1}]
         self._test_check_count(entries)
