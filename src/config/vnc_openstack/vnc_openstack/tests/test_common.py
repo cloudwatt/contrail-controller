@@ -66,6 +66,8 @@ class TestBase(unittest.TestCase):
             if (k in verify):
                 if not self._compare(v, verify[k]):
                     return False
+            else:
+                return False
         return True
 
     def _test_check(self, _handler_method, test_entries):
@@ -144,4 +146,6 @@ class TestBase(unittest.TestCase):
         return self._test_check(self._handler.resource_get, entries)
 
     def _test_check_delete(self, entries):
-        return self._test_check(self._handler.resource_delete, entries)
+        def _pre_handler(inp):
+            return self._handler.resource_delete(**inp)
+        return self._test_check(_pre_handler, entries)

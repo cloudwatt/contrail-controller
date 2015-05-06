@@ -159,7 +159,7 @@ class TestVnHandlers(test_common.TestBase):
         vn_uuid = self._create_network('test-net', self.proj_obj)
 
         entries = [{
-            'input': vn_uuid,
+            'input': {'net_id': vn_uuid},
             'output': None}]
         self._test_check_delete(entries)
 

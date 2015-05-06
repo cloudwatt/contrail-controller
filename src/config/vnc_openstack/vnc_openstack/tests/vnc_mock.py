@@ -186,7 +186,17 @@ class MockVnc(object):
             elif self._resource_type == "instance-ip":
                 if not obj.get_instance_ip_address():
                     obj.set_instance_ip_address('1.1.1.1')
-
+            elif self._resource_type == 'security-group':
+                if not obj.get_id_perms():
+                    obj.set_id_perms(vnc_api.IdPermsType(enable=True))
+                proj_obj = self._resource_collection['project'][
+                    obj.parent_uuid]
+                sgs = getattr(proj_obj, 'security_groups', None)
+                sg_ref = {'to': obj.get_fq_name(), 'uuid': obj.uuid}
+                if not sgs:
+                    setattr(proj_obj, 'security_groups', [sg_ref])
+                else:
+                    sgs.append(sg_ref)
             return uuid
 
     class UpdateCallables(Callables):

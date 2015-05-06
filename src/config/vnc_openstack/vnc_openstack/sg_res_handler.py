@@ -78,14 +78,15 @@ class SecurityGroupBaseGet(res_handler.ResourceGetHandler):
 class SecurityGroupGetHandler(SecurityGroupBaseGet, SecurityGroupMixin):
     resource_list_method = "security_groups_list"
 
-    def resource_get(self, sg_id):
+    def resource_get(self, sg_id, contrail_extensions_enabled=True):
         try:
             sg_obj = self._resource_get(id=sg_id)
         except vnc_exc.NoIdError:
             db_handler.DBInterfaceV2._raise_contrail_exception(
                 'SecurityGroupNotFound', id=sg_id)
 
-        return self._security_group_vnc_to_neutron(sg_obj)
+        return self._security_group_vnc_to_neutron(
+            sg_obj, contrail_extensions_enabled)
 
     def resource_list_by_project(self, project_id):
         if project_id:
@@ -102,7 +103,8 @@ class SecurityGroupGetHandler(SecurityGroupBaseGet, SecurityGroupMixin):
                                       detail=True)
         return sg_objs
 
-    def resource_list(self, context, filters=None):
+    def resource_list(self, context, filters=None,
+                      contrail_extensions_enabled=False):
         ret_list = []
 
         # collect phase
@@ -133,7 +135,8 @@ class SecurityGroupGetHandler(SecurityGroupBaseGet, SecurityGroupMixin):
                         filters, 'name',
                         sg_obj.get_display_name() or sg_obj.name):
                     continue
-                sg_info = self._security_group_vnc_to_neutron(sg_obj)
+                sg_info = self._security_group_vnc_to_neutron(
+                    sg_obj, contrail_extensions_enabled)
                 ret_list.append(sg_info)
 
         return ret_list
@@ -170,15 +173,20 @@ class SecurityGroupUpdateHandler(res_handler.ResourceUpdateHandler,
     def resource_update_obj(self, sg_obj):
         self._resource_update(sg_obj)
 
-    def resource_update(self, sg_id, sg_q):
+    def resource_update(self, sg_id, sg_q, contrail_extensions_enabled=True):
         sg_q['id'] = sg_id
-        sg_obj = self._security_group_neutron_to_vnc(
-            sg_q,
-            self._resource_get(id=sg_id))
+        try:
+            sg_obj = self._security_group_neutron_to_vnc(
+                sg_q,
+                self._resource_get(id=sg_id))
+        except vnc_exc.NoIdError:
+            db_handler.DBInterfaceV2._raise_contrail_exception(
+                'SecurityGroupNotFound', id=sg_id)
 
         self._resource_update(sg_obj)
 
-        ret_sg_q = self._security_group_vnc_to_neutron(sg_obj)
+        ret_sg_q = self._security_group_vnc_to_neutron(
+            sg_obj, contrail_extensions_enabled)
 
         return ret_sg_q
 
@@ -189,7 +197,11 @@ class SecurityGroupCreateHandler(res_handler.ResourceCreateHandler,
 
     def _create_security_group(self, sg_q):
         project_id = str(uuid.UUID(sg_q['tenant_id']))
-        project_obj = self._project_read(proj_id=project_id)
+        try:
+            project_obj = self._project_read(proj_id=project_id)
+        except vnc_exc.NoIdError:
+            raise db_handler.DBInterfaceV2._raise_contrail_exception(
+                'ProjectNotFound', project_id=project_id)
         id_perms = vnc_api.IdPermsType(enable=True,
                                        description=sg_q.get('description'))
         sg_vnc = vnc_api.SecurityGroup(name=sg_q['name'],
@@ -197,7 +209,7 @@ class SecurityGroupCreateHandler(res_handler.ResourceCreateHandler,
                                        id_perms=id_perms)
         return sg_vnc
 
-    def resource_create(self, sg_q):
+    def resource_create(self, sg_q, contrail_extensions_enabled=False):
         sg_obj = self._security_group_neutron_to_vnc(
             sg_q,
             self._create_security_group(sg_q))
@@ -223,7 +235,8 @@ class SecurityGroupCreateHandler(res_handler.ResourceCreateHandler,
         sgrule_handler.SecurityGroupRuleHandler(
             self._vnc_lib).resource_create(def_rule)
 
-        ret_sg_q = self._security_group_vnc_to_neutron(sg_obj)
+        ret_sg_q = self._security_group_vnc_to_neutron(
+            sg_obj, contrail_extensions_enabled)
         return ret_sg_q
 
 
