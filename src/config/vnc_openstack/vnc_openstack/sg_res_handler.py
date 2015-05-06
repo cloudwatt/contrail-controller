@@ -43,7 +43,7 @@ class SecurityGroupMixin(object):
         # get security group rules
         sg_q_dict['security_group_rules'] = []
         rule_list = sgrule_handler.SecurityGroupRuleHandler(
-            self._vnc_lib).security_group_rules_read(sg_obj.uuid, sg_obj)
+            self._vnc_lib).security_group_rules_read(sg_obj)
 
         if rule_list:
             for rule in rule_list:

@@ -143,7 +143,12 @@ class TestBase(unittest.TestCase):
             self._handler.resource_delete(id)
 
     def _test_check_get(self, entries):
-        return self._test_check(self._handler.resource_get, entries)
+        def _pre_handler(inp):
+            if type(inp) != dict:
+                return self._handler.resource_get(inp)
+            else:
+                return self._handler.resource_get(**inp)
+        return self._test_check(_pre_handler, entries)
 
     def _test_check_delete(self, entries):
         def _pre_handler(inp):

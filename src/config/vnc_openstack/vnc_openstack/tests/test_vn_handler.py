@@ -112,7 +112,7 @@ class TestVnHandlers(test_common.TestBase):
                 'admin_state_up': False,
                 'id': net_id,
                 'subnets': [subnet_uuid],
-                'router:externa': True,
+                'router:external': True,
                 'contrail:route_table': [['default-domain',
                                           'default-project',
                                           'test-route-table']]
@@ -129,7 +129,7 @@ class TestVnHandlers(test_common.TestBase):
                 'name': 'test-net',
                 'id': net_id,
                 'subnets': [subnet_uuid],
-                'router:externa': False,
+                'router:external': False,
             }
         }, {
             # invalid route_table entry
