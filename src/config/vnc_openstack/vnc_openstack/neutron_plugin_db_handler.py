@@ -234,7 +234,9 @@ class DBInterfaceV2(DBInterface):
 
     def security_group_create(self, sg_q):
         handler = sg_handler.SecurityGroupHandler(self._vnc_lib)
-        return handler.resource_create(sg_q=sg_q)
+        return handler.resource_create(
+            sg_q=sg_q,
+            contrail_extensions_enabled=self.contrail_extensions_enabled)
 
     def security_group_read(self, sg_id):
         handler = sg_handler.SecurityGroupHandler(self._vnc_lib)
@@ -242,7 +244,9 @@ class DBInterfaceV2(DBInterface):
 
     def security_group_list(self, context, filters=None):
         handler = sg_handler.SecurityGroupHandler(self._vnc_lib)
-        return handler.resource_list(context, filters=filters)
+        return handler.resource_list(
+            context, filters=filters,
+            contrail_extensions_enabled=self.contrail_extensions_enabled)
 
     def security_group_delete(self, context, sg_id):
         handler = sg_handler.SecurityGroupHandler(self._vnc_lib)

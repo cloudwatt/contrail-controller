@@ -63,7 +63,7 @@ class SecurityGroupRuleMixin(object):
                 try:
                     if remote_sg != ':'.join(sg_obj.get_fq_name()):
                         remote_sg_obj = sg_handler.SecurityGroupHandler(
-                            self._vnc_lib).resource_get(fq_name_str=remote_sg)
+                            self._vnc_lib)._resource_get(fq_name_str=remote_sg)
                     else:
                         remote_sg_obj = sg_obj
                     remote_sg_uuid = remote_sg_obj.uuid
@@ -126,25 +126,17 @@ class SecurityGroupRuleGetHandler(res_handler.ResourceGetHandler,
         db_handler.DBInterfaceV2._raise_contrail_exception(
             'SecurityGroupRuleNotFound', id=sgr_id)
 
-    def security_group_rules_read(self, sg_id, sg_obj=None):
-        try:
-            if not sg_obj:
-                sg_obj = sg_handler.SecurityGroupHandler(
-                    self._vnc_lib)._resource_get(id=sg_id)
+    def security_group_rules_read(self, sg_obj):
+        sgr_entries = sg_obj.get_security_group_entries()
+        sg_rules = []
+        if sgr_entries is None:
+            return
 
-            sgr_entries = sg_obj.get_security_group_entries()
-            sg_rules = []
-            if sgr_entries is None:
-                return
-
-            for sg_rule in sgr_entries.get_policy_rule():
-                sg_info = self._security_group_rule_vnc_to_neutron(sg_obj.uuid,
-                                                                   sg_rule,
-                                                                   sg_obj)
-                sg_rules.append(sg_info)
-        except vnc_exc.NoIdError:
-            db_handler.DBInterfaceV2._raise_contrail_exception(
-                'SecurityGroupNotFound', id=sg_id)
+        for sg_rule in sgr_entries.get_policy_rule():
+            sg_info = self._security_group_rule_vnc_to_neutron(sg_obj.uuid,
+                                                               sg_rule,
+                                                               sg_obj)
+            sg_rules.append(sg_info)
 
         return sg_rules
     # end security_group_rules_read
@@ -177,7 +169,7 @@ class SecurityGroupRuleGetHandler(res_handler.ResourceGetHandler,
                 # TODO implement same for name specified in filter
                 if not self._filters_is_present(filters, 'id', sg_obj.uuid):
                     continue
-                sgr_info = self.security_group_rules_read(sg_obj.uuid, sg_obj)
+                sgr_info = self.security_group_rules_read(sg_obj)
                 if sgr_info:
                     ret_list.extend(sgr_info)
 
@@ -220,7 +212,7 @@ class SecurityGroupRuleCreateHandler(res_handler.ResourceCreateHandler,
         if value is None:
             return
 
-        if value.lower() == 'any':
+        if isinstance(value, str) and value.lower() == 'any':
             return 'any'
         try:
             val = int(value)
@@ -233,10 +225,6 @@ class SecurityGroupRuleCreateHandler(res_handler.ResourceCreateHandler,
         except (ValueError, TypeError):
             if value.lower() in IP_PROTOCOL_MAP.values():
                 return value.lower()
-            db_handler.DBInterfaceV2._raise_contrail_exception(
-                'SecurityGroupRuleInvalidProtocol',
-                protocol=value, values=IP_PROTOCOL_MAP.values())
-        except AttributeError:
             db_handler.DBInterfaceV2._raise_contrail_exception(
                 'SecurityGroupRuleInvalidProtocol',
                 protocol=value, values=IP_PROTOCOL_MAP.values())
