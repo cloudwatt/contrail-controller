@@ -809,10 +809,10 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
 
         return ret_ports
 
-    def resource_list(self, context, filters={},
+    def resource_list(self, context=None, filters={},
                       contrail_extensions_enabled=False):
         if not context:
-            return
+            context = {'is_admin': True}
 
         project_ids = []
         tenant_ids = []
@@ -874,7 +874,7 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
 
         return ret_port_q
 
-    def resource_count(self, context, filters=None):
+    def resource_count(self, filters=None):
         count = self._resource_count_optimized(filters)
         if count is not None:
             return count
@@ -893,7 +893,7 @@ class VMInterfaceGetHandler(res_handler.ResourceGetHandler, VMInterfaceMixin):
         else:
             # across all projects - TODO() very expensive,
             # get only a count from api-server!
-            nports = len(self.resource_list(context, filters=filters))
+            nports = len(self.resource_list(filters=filters))
 
         return nports
 
