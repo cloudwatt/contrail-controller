@@ -40,7 +40,12 @@ class MockVnc(object):
                             back_ref_name, back_ref_obj):
             _ref_name = ref_name[:-5]
             for ref in refs:
-                ref_uuid = ref['uuid']
+                try:
+                    ref_uuid = ref['uuid']
+                except KeyError:
+                    ref_uuid = str(UUID.uuid4())
+                    ref['uuid'] = ref_uuid
+
                 if (_ref_name not in self._resource_collection or
                         ref_uuid not in
                         self._resource_collection[_ref_name]):
