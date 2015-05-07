@@ -36,7 +36,7 @@ class TestBase(unittest.TestCase):
         except Exception:
             return False
         return True
-            
+
     def _is_uuid_or_mac(self, str):
         try:
             uuid.UUID(str)
@@ -62,7 +62,7 @@ class TestBase(unittest.TestCase):
                 if against == self._generated() and self._is_uuid_or_mac(verify):
                     res = True
             return res
-                    
+
     def _compare_list(self, verify, against):
         _against = list(against)
         if len(verify) != len(against):
@@ -97,6 +97,7 @@ class TestBase(unittest.TestCase):
         return True
 
     def _test_check(self, _handler_method, test_entries):
+        index = 0
         for entry in test_entries:
             if type(entry['output']) == type and \
                     issubclass(entry['output'], Exception):
