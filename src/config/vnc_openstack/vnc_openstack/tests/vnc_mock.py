@@ -249,8 +249,8 @@ class MockVnc(object):
                         _ref_name, ref_uuid))
                 else:
                     ref_obj = self._resource_collection[_ref_name][ref_uuid]
-                    back_ref = getattr(ref_obj, back_ref_name)
-                    for index, value in enumerate(back_ref):
+                    back_ref = getattr(ref_obj, back_ref_name, [])
+                    for index, value in enumerate(back_ref) or []:
                         if value['uuid'] == back_ref_uuid:
                             back_ref.pop(index)
                             break

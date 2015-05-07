@@ -108,8 +108,9 @@ class DBInterfaceV2(DBInterface):
     def port_create(self, context, port_q):
         handler = vmi_handler.VMInterfaceHandler(
             self._vnc_lib)
-        return handler.resource_create(context=context,
-                                       port_q=port_q)
+        return handler.resource_create(
+            context=context, port_q=port_q,
+            apply_subnet_host_routes=self._apply_subnet_host_routes)
 
     def port_delete(self, port_id):
         handler = vmi_handler.VMInterfaceHandler(
@@ -140,8 +141,9 @@ class DBInterfaceV2(DBInterface):
 
     def subnet_update(self, subnet_id, subnet_q):
         handler = subnet_handler.SubnetHandler(self._vnc_lib)
-        return handler.resource_update(subnet_id=subnet_id,
-                                       subnet_q=subnet_q)
+        return handler.resource_update(
+            subnet_id=subnet_id, subnet_q=subnet_q,
+            apply_subnet_host_routes=self._apply_subnet_host_routes)
 
     def subnet_delete(self, subnet_id):
         sn_delete_handler = subnet_handler.SubnetHandler(self._vnc_lib)

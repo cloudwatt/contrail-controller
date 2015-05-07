@@ -20,6 +20,7 @@ from vnc_api import vnc_api
 
 from vnc_openstack import ipam_res_handler as ipam_handler
 from vnc_openstack import subnet_res_handler as subnet_handler
+from vnc_openstack import vmi_res_handler as vmi_handler
 from vnc_openstack.tests import test_common
 
 
@@ -92,11 +93,15 @@ class TestSubnetHandlers(test_common.TestBase):
         super(TestSubnetHandlers, self).setUp()
         self._handler = subnet_handler.SubnetHandler(self._test_vnc_lib)
 
-    def _create_test_subnet(self, name, net_obj, cidr='192.168.1.0/24'):
+    def _create_test_subnet(self, name, net_obj, cidr='192.168.1.0/24',
+                            host_routes=None):
         subnet_q = {'name': name,
                     'cidr': cidr,
                     'ip_version': 4,
                     'network_id': str(net_obj.uuid)}
+        if host_routes:
+            subnet_q['host_routes'] = host_routes
+
         ret = self._handler.resource_create(subnet_q)
         return ret['id']
 
@@ -368,3 +373,100 @@ class TestSubnetHandlers(test_common.TestBase):
                     'network_id': [str(net_obj_2.uuid)]}},
                 'output': [{'name': 'test-subnet-2'}]}]
         self._test_check_list(entries)
+
+    def _create_test_port(self, name, net_obj, proj_obj,
+                          with_fixed_ip=False, subnet_uuid=None,
+                          ip_address='192.168.1.3',
+                          apply_subnet_host_routes=False):
+        context = {'tenant_id': self._uuid_to_str(proj_obj.uuid),
+                   'is_admin': False}
+        port_q = {'name': name,
+                  'network_id': str(net_obj.uuid),
+                  'tenant_id': context['tenant_id']}
+
+        if with_fixed_ip:
+            port_q['fixed_ips'] = [{'subnet_id': subnet_uuid,
+                                    'ip_address': ip_address}]
+
+        _vmi_handler = vmi_handler.VMInterfaceHandler(self._test_vnc_lib)
+        returned_port = _vmi_handler.resource_create(
+            context, port_q, apply_subnet_host_routes=apply_subnet_host_routes)
+        
+        context['tenant'] = context['tenant_id']
+        res = _vmi_handler.resource_list(context, filters={'name': name})
+        self.assertEqual(len(res), 1)
+        return res[0]['id']
+
+    def _delete_test_port(self, port_id):
+        _vmi_handler = vmi_handler.VMInterfaceHandler(self._test_vnc_lib)
+        _vmi_handler.resource_delete(port_id)
+
+
+    def _get_iface_route_tables_count(self):
+        iface_rt_tables = self._test_vnc_lib.interface_route_tables_list(
+            detail=True)
+        return len(iface_rt_tables)
+
+    def test_subnet_apply_host_routes(self):
+        net_obj = vnc_api.VirtualNetwork('test-net', self.proj_obj)
+        self._test_vnc_lib.virtual_network_create(net_obj)
+        host_routes = [{'destination': '10.0.0.0/24',
+                        'nexthop': '192.168.1.10'},
+                       {'destination': '10.0.0.0/24',
+                        'nexthop': '192.168.1.20'}]
+        subnet_uuid = self._create_test_subnet('test-subnet', net_obj,
+                                               host_routes=host_routes)
+
+        port_1 = self._create_test_port('test-port-1', net_obj=net_obj,
+                                        proj_obj=self.proj_obj,
+                                        with_fixed_ip=True,
+                                        ip_address='192.168.1.10',
+                                        subnet_uuid=subnet_uuid,
+                                        apply_subnet_host_routes=True)
+        iface_rt_table_count = self._get_iface_route_tables_count()
+        self.assertEqual(1, iface_rt_table_count)
+
+        port_2 = self._create_test_port('test-port-2', net_obj=net_obj,
+                                        proj_obj=self.proj_obj,
+                                        with_fixed_ip=True,
+                                        ip_address='192.168.1.20',
+                                        subnet_uuid=subnet_uuid,
+                                        apply_subnet_host_routes=True)
+
+        iface_rt_table_count = self._get_iface_route_tables_count()
+        self.assertEqual(2, iface_rt_table_count)
+
+        subnet_q = {'host_routes': [{'destination': '20.0.0.0/24',
+                                     'nexthop': '192.168.1.20'},
+                                    {'destination': '40.0.0.0/24',
+                                    'nexthop': '192.168.1.30'}]}
+
+
+        
+        self._handler.resource_update(subnet_uuid, subnet_q,
+                                      apply_subnet_host_routes=True)
+
+        iface_rt_table_count = self._get_iface_route_tables_count()
+        self.assertEqual(1, iface_rt_table_count)
+        
+        self._delete_test_port(port_1)
+        iface_rt_table_count = self._get_iface_route_tables_count()
+        self.assertEqual(1, iface_rt_table_count)
+
+        port_3 = self._create_test_port('test-port-3', net_obj=net_obj,
+                                        proj_obj=self.proj_obj,
+                                        with_fixed_ip=True,
+                                        ip_address='192.168.1.30',
+                                        subnet_uuid=subnet_uuid,
+                                        apply_subnet_host_routes=True)
+
+        iface_rt_table_count = self._get_iface_route_tables_count()
+        self.assertEqual(2, iface_rt_table_count)
+        
+        self._delete_test_port(port_2)
+        self._delete_test_port(port_3)
+
+        iface_rt_table_count = self._get_iface_route_tables_count()
+        self.assertEqual(0, iface_rt_table_count)
+
+        
