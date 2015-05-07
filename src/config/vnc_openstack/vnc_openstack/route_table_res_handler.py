@@ -130,9 +130,10 @@ class RouteTableCreateHandler(res_handler.ResourceCreateHandler):
                         si_obj = self._vnc_lib.service_instance_read(
                             fq_name=fq_name)
                         route['next_hop'] = si_obj.get_fq_name_str()
+                    rt_obj.set_routes(
+                        vnc_api.RouteTableType.factory(**rt_q['routes']))
                 except Exception as e:
                     pass
-            rt_obj.set_routes(vnc_api.RouteTableType.factory(**rt_q['routes']))
         try:
             self._resource_create(rt_obj)
         except vnc_exc.RefsExistError as e:
@@ -150,7 +151,11 @@ class RouteTableUpdateHandler(res_handler.ResourceUpdateHandler,
 
     def resource_update(self, rt_id, rt_q):
         rt_q['id'] = rt_id
-        rt_obj = self._resource_get(id=rt_q['id'])
+        try:
+            rt_obj = self._resource_get(id=rt_q['id'])
+        except vnc_exc.NoIdError:
+            raise db_handler.DBInterfaceV2._raise_contrail_exception(
+                'ResourceNotFound', id=rt_id)
 
         if rt_q['routes']:
             for route in rt_q['routes']['route']:
@@ -163,9 +168,10 @@ class RouteTableUpdateHandler(res_handler.ResourceUpdateHandler,
                         si_obj = self._vnc_lib.service_instance_read(
                             fq_name=fq_name)
                         route['next_hop'] = si_obj.get_fq_name_str()
+                    rt_obj.set_routes(
+                        vnc_api.RouteTableType.factory(**rt_q['routes']))
                 except Exception:
                     pass
-        rt_obj.set_routes(vnc_api.RouteTableType.factory(**rt_q['routes']))
         self._resource_update(rt_obj)
         return self._route_table_vnc_to_neutron(rt_obj)
 

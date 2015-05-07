@@ -219,7 +219,6 @@ class MockVnc(object):
                 for ref in obj._pending_field_updates:
                     # if ref.endswith("_refs"):
                     #    ref = ref[:-5].replace('_', '-')
-                    print " -- Pending field updates %s" % (obj._pending_field_updates)
                     setattr(cur_obj, ref, getattr(obj, ref, None))
                     if ref.endswith("_refs"):
                         self.update_back_ref(ref, getattr(cur_obj, ref),
