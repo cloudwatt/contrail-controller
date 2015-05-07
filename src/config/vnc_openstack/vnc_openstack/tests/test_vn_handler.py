@@ -41,7 +41,7 @@ class TestVnHandlers(test_common.TestBase):
                 'shared': True,
                 'contrail:fq_name': ['default-domain',
                                      'default-project',
-                                     'default-network']
+                                     'default-virtual-network']
             }
         }]
         self._test_check_create(entries)
@@ -227,7 +227,7 @@ class TestVnHandlers(test_common.TestBase):
             },
             'output': [{'name': 'test-re'},
                        {'name': 'test-sh'},
-                       {'test-net-pr1'}]
+                       {'name': 'test-net-pr1'}]
         }, {  # 8
             'input': {
                 'context': context,
@@ -239,9 +239,9 @@ class TestVnHandlers(test_common.TestBase):
         self._test_check_list(entries)
 
         context['is_admin'] = True
-        entries[0]['output'] += {'name': 'test-net'}
-        entries[5]['output'] += {'name': 'test-sh'}
-        entries[7]['output'] += {'name': 'test-net'}
+        entries[0]['output'] += [{'name': 'test-net'}]
+        entries[5]['output'] += [{'name': 'test-sh'}]
+        entries[7]['output'] += [{'name': 'test-net'}]
         entries[8]['output'].extend(
             [{'name': 'test-sh'}, {'name': 'test-net-pr1'}])
         self._test_check_list(entries)

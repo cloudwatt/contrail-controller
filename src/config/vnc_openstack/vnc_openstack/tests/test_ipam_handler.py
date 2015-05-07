@@ -38,7 +38,7 @@ class TestIPamHandlers(test_common.TestBase):
 
     def _create_test_ipam(self, name, proj):
         res = self._handler.resource_create(
-            {'name': 'test-ipam', 'tenant_id': self._uuid_to_str(proj.uuid)})
+            {'name': name, 'tenant_id': self._uuid_to_str(proj.uuid)})
         self.assertEqual(res['mgmt'], None)
         return res['id']
 
@@ -127,7 +127,7 @@ class TestIPamHandlers(test_common.TestBase):
                 'nets_using': [
                     ['default-domain',
                      'default-project',
-                     'test-net']]
+                     'test_net']]
             }
         }]
         self._test_check_get(entries)

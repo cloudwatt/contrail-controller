@@ -16,7 +16,7 @@ import ConfigParser
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from vnc_api import vnc_api
-#from cfgm_common.utils import CacheContainer
+from cfgm_common.utils import CacheContainer
 import neutron_plugin_db_handler
 
 @bottle.error(400)
@@ -79,9 +79,8 @@ class NeutronPluginInterface(object):
             self._sn_host_route = False
 
         self._cfgdb = None
-        self._cfgdb_map = dict()
-        #self._cfgdb_map = CacheContainer(_vnc_connection_cache_size) \
-        #    if _vnc_connection_cache_size > 0 else dict()
+        self._cfgdb_map = CacheContainer(_vnc_connection_cache_size) \
+            if _vnc_connection_cache_size > 0 else dict()
 
         global LOG
         LOG = sandesh.logger()

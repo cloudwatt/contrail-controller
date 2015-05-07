@@ -36,6 +36,30 @@ class MockVnc(object):
             self._resource_collection = resource_collection
             self._server_conn = server_conn
 
+        def update_back_ref(self, ref_name, refs,
+                            back_ref_name, back_ref_obj):
+            _ref_name = ref_name[:-5]
+            for ref in refs:
+                ref_uuid = ref['uuid']
+                if (_ref_name not in self._resource_collection or
+                        ref_uuid not in
+                        self._resource_collection[_ref_name]):
+                    # TODO(anbu): Implement if needed
+                    msg = (" -- Unable to locate %s resource with uuid %s"
+                           % (_ref_name, ref_uuid))
+                    print(msg)
+                else:
+                    ref_obj = (
+                        self._resource_collection[_ref_name][ref_uuid])
+                    back_ref = {'uuid': back_ref_obj.uuid,
+                                'to': back_ref_obj.get_fq_name()}
+                    back_ref_name = ("%s_back_refs"
+                                     % back_ref_name.replace("-", "_"))
+                    if hasattr(ref_obj, back_ref_name) and getattr(ref_obj, back_ref_name):
+                        getattr(ref_obj, back_ref_name).append(back_ref)
+                    else:
+                        setattr(ref_obj, back_ref_name, [back_ref])
+
     class ReadCallables(Callables):
         def __call__(self, **kwargs):
             if 'id' in kwargs:
@@ -129,37 +153,13 @@ class MockVnc(object):
 
             self._resource[uuid] = obj
 
-            def update_back_ref(ref_name, refs,
-                                back_ref_name, back_ref_obj):
-                _ref_name = ref_name[:-5]
-                for ref in refs:
-                    ref_uuid = ref['uuid']
-                    if (_ref_name not in self._resource_collection or
-                            ref_uuid not in
-                            self._resource_collection[_ref_name]):
-                        # TODO(anbu): Implement if needed
-                        msg = (" -- Unable to locate %s resource with uuid %s"
-                               % (_ref_name, ref_uuid))
-                        print(msg)
-                    else:
-                        ref_obj = (
-                            self._resource_collection[_ref_name][ref_uuid])
-                        back_ref = {'uuid': back_ref_obj.uuid,
-                                    'to': back_ref_obj.get_fq_name()}
-                        back_ref_name = ("%s_back_refs"
-                                         % back_ref_name.replace("-", "_"))
-                        if hasattr(ref_obj, back_ref_name) and getattr(ref_obj, back_ref_name):
-                            getattr(ref_obj, back_ref_name).append(back_ref)
-                        else:
-                            setattr(ref_obj, back_ref_name, [back_ref])
-
             for field in obj._pending_field_updates:
                 if field.endswith("_refs"):
                     for r in getattr(obj, field):
                         if 'uuid' not in r:
                             r['uuid'] = str(UUID.uuid4())
-                        update_back_ref(field, getattr(obj, field),
-                                        self._resource_type, obj)
+                        self.update_back_ref(field, getattr(obj, field),
+                                             self._resource_type, obj)
 
             self._pending_ref_updates = self._pending_field_updates = []
 
@@ -220,6 +220,9 @@ class MockVnc(object):
                     # if ref.endswith("_refs"):
                     #    ref = ref[:-5].replace('_', '-')
                     setattr(cur_obj, ref, getattr(obj, ref, None))
+                    if ref.endswith("_refs"):
+                        self.update_back_ref(ref, getattr(cur_obj, ref),
+                                             self._resource_type, obj)
 
     class DeleteCallables(Callables):
         def __call__(self, **kwargs):

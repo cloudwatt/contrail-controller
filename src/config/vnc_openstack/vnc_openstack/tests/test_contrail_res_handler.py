@@ -200,6 +200,7 @@ class TestVMachineHandler(TestContrailBase):
     def _test_ensure_vm_instance_helper(self, instance_id, fake_instance_obj,
                                         get_side_effect=None,
                                         get_ret_val=None):
+        self.VirtualMachine = vnc_api.VirtualMachine
         vnc_api.VirtualMachine = mock.Mock()
         vnc_api.VirtualMachine.return_value = fake_instance_obj
         self.vnc_lib.obj_to_id.return_value = instance_id
@@ -213,6 +214,7 @@ class TestVMachineHandler(TestContrailBase):
         vm_obj = self.vm_handler.ensure_vm_instance(instance_id)
         self.assertEqual(fake_instance_obj, vm_obj)
         self.vnc_lib.obj_to_id.assert_called_once_with(fake_instance_obj)
+        vnc_api.VirtualMachine = self.VirtualMachine
 
     def test_ensure_vm_instance(self):
         self._test_ensure_vm_instance_helper('foo-id', 'fake-inst-obj',

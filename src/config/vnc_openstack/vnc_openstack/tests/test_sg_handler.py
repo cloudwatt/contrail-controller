@@ -152,14 +152,14 @@ class TestSecurityGroupHandlers(test_common.TestBase):
                 'contrail_extensions_enabled': True
             },
             'output': [{
-                'id': self._generated,
+                'id': self._generated(),
                 'contrail:fq_name': ['default-domain',
-                                     'default-proj',
+                                     'default-project',
                                      'default']
             }, {
-                'id': self._generated,
+                'id': self._generated(),
                 'contrail:fq_name': ['default-domain',
-                                     'proj-1',
+                                     'proj_1',
                                      'default']
             }]
         }, {
@@ -187,7 +187,7 @@ class TestSecurityGroupHandlers(test_common.TestBase):
             },
             'output': [{
                 'contrail:fq_name': ['default-domain',
-                                     'proj-1',
+                                     'proj_1',
                                      'default'],
                 'name': 'default'
             }]
