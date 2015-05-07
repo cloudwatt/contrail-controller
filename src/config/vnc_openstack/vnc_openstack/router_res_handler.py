@@ -547,7 +547,6 @@ class LogicalRouterInterfaceHandler(res_handler.ResourceGetHandler,
 
             subnet_id = fixed_ips[0]['subnet_id']
 
-
         subnet_vnc = self._subnet_handler._subnet_read(subnet_id=subnet_id)
         if not subnet_vnc.default_gateway:
             self._raise_contrail_exception(

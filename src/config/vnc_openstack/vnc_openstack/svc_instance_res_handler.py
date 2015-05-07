@@ -120,7 +120,11 @@ class SvcInstanceCreateHandler(res_handler.ResourceCreateHandler,
 
     def _svc_instance_neutron_to_vnc(self, si_q):
         project_id = str(uuid.UUID(si_q['tenant_id']))
-        project_obj = self._project_read(proj_id=project_id)
+        try:
+            project_obj = self._project_read(proj_id=project_id)
+        except vnc_exc.NoIdError:
+            raise db_handler.DBInterfaceV2._raise_contrail_exception(
+                'ProjectNotFound', project_id=project_id)
         net_id = si_q['external_net']
         ext_vn = vn_handler.VNetworkHandler(
             self._vnc_lib)._resource_get(id=net_id)
