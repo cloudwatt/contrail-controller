@@ -532,8 +532,6 @@ class LogicalRouterInterfaceHandler(res_handler.ResourceGetHandler,
 
     def _get_router_iface_vnc_info(self, context, router_id, port_id=None,
                                    subnet_id=None):
-        print " -- _get_router_interface_vnc_info called with %s, router, %s port, %s subnet" % (
-            router_id, port_id, subnet_id)
         if port_id:
             vmi_obj, vn_obj, rtr_uuid, fixed_ips = self._get_vmi_info(port_id)
             net_id = vn_obj.uuid
@@ -561,7 +559,6 @@ class LogicalRouterInterfaceHandler(res_handler.ResourceGetHandler,
 
         if not port_id:
             vn_obj = self._subnet_handler.get_vn_obj_for_subnet_id(subnet_id)
-            print " -- device_id = " + router_id
             fixed_ip = {'ip_address': subnet_vnc.default_gateway,
                         'subnet_id': subnet_id}
             port_q = {'tenant_id': vn_obj.parent_uuid.replace('-', ''),
@@ -638,7 +635,6 @@ class LogicalRouterInterfaceHandler(res_handler.ResourceGetHandler,
             n_constants.DEVICE_OWNER_ROUTER_INTF)
         self._vnc_lib.virtual_machine_interface_update(vmi_obj)
         router_obj.add_virtual_machine_interface(vmi_obj)
-        print " -- add_router_interface - updating router interface"
         self._resource_update(router_obj)
         info = {'id': router_id,
                 'tenant_id': vn_obj.parent_uuid.replace('-', ''),
