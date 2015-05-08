@@ -36,16 +36,29 @@ class MockVnc(object):
             self._resource_collection = resource_collection
             self._server_conn = server_conn
 
+        def delete_back_refs(self, ref_name, ref_uuid, back_ref_name,
+                             back_ref_uuid):
+            _ref_name = ref_name
+            if (_ref_name not in self._resource_collection or
+                    ref_uuid not in self._resource_collection[_ref_name]):
+                # TODO(anbu): Implement if needed
+                print(" -- Unable to locate %s resource with uuid %s" % (
+                    _ref_name, ref_uuid))
+            else:
+                ref_obj = self._resource_collection[_ref_name][ref_uuid]
+                back_ref = getattr(ref_obj, back_ref_name)
+                for index, value in enumerate(back_ref):
+                    if value['uuid'] == back_ref_uuid:
+                        back_ref.pop(index)
+                        break
+
         def update_back_ref(self, ref_name, refs,
                             back_ref_name, back_ref_obj):
             _ref_name = ref_name[:-5]
             for ref in refs:
-                try:
-                    ref_uuid = ref['uuid']
-                except KeyError:
-                    ref_uuid = str(UUID.uuid4())
-                    ref['uuid'] = ref_uuid
-
+                if 'uuid' not in ref:
+                    ref['uuid'] = str(UUID.uuid4())
+                ref_uuid = ref['uuid']
                 if (_ref_name not in self._resource_collection or
                         ref_uuid not in
                         self._resource_collection[_ref_name]):
@@ -60,6 +73,7 @@ class MockVnc(object):
                                 'to': back_ref_obj.get_fq_name()}
                     back_ref_name = ("%s_back_refs"
                                      % back_ref_name.replace("-", "_"))
+                    print " -- Updating back refs %s for %s resource" % (back_ref_name, _ref_name)
                     if hasattr(ref_obj, back_ref_name) and getattr(ref_obj, back_ref_name):
                         getattr(ref_obj, back_ref_name).append(back_ref)
                     else:
@@ -161,12 +175,11 @@ class MockVnc(object):
             for field in obj._pending_field_updates:
                 if field.endswith("_refs"):
                     for r in getattr(obj, field):
-                        if 'uuid' not in r:
-                            r['uuid'] = str(UUID.uuid4())
+                        setattr(obj, "processed_" + field, list(getattr(obj, field)))
                         self.update_back_ref(field, getattr(obj, field),
                                              self._resource_type, obj)
 
-            self._pending_ref_updates = self._pending_field_updates = []
+            self._pending_ref_updates = self._pending_field_updates = set([])
 
             if fq_name_str and fq_name_str != uuid:
                 if fq_name_str in self._resource:
@@ -213,21 +226,29 @@ class MockVnc(object):
 
             if obj._pending_ref_updates:
                 for ref in obj._pending_ref_updates:
-                    # if ref.endswith("_refs"):
-                    #    ref = ref.replace('_', '-')
-                    if cur_obj is not obj:
-                        cur_obj_ref = getattr(cur_obj, ref)
-                        obj_ref = getattr(obj, ref)
-                        cur_obj_ref += obj_ref
+                    if ref.endswith("_refs"):
+                        proc_refs = getattr(cur_obj, "processed_" + ref, [])
+                        obtained_refs = getattr(cur_obj, ref)
+                        if len(obtained_refs) > len(proc_refs):
+                            self.update_back_ref(ref, getattr(obj, ref),
+                                                 self._resource_type, cur_obj)
+                        elif len(obtained_refs) < len(proc_refs):
+                            proc_uuids = [x['uuid'] for x in proc_refs]
+                            obtained_uuids = [x['uuid'] for x in obtained_refs]
+                            back_ref_name = (self._resource_type.replace("-", "_") +
+                                             "_back_refs")
+                            ref_name = ref[:-5]
+                            for i in set(proc_uuids) - set(obtained_uuids):
+                                self.delete_back_refs(ref_name, i, back_ref_name, obj.uuid)
+                        setattr(cur_obj, "processed_" + ref, list(getattr(cur_obj, ref)))
 
             if obj._pending_field_updates:
                 for ref in obj._pending_field_updates:
-                    # if ref.endswith("_refs"):
-                    #    ref = ref[:-5].replace('_', '-')
-                    setattr(cur_obj, ref, getattr(obj, ref, None))
                     if ref.endswith("_refs"):
+                        setattr(obj, "processed_" + ref, list(getattr(cur_obj, ref)))
                         self.update_back_ref(ref, getattr(cur_obj, ref),
-                                             self._resource_type, obj)
+                                             self._resource_type, cur_obj)
+
 
     class DeleteCallables(Callables):
         def __call__(self, **kwargs):
@@ -247,22 +268,6 @@ class MockVnc(object):
             self._resource.pop(':'.join(obj.get_fq_name()), None)
 
             # remove all the back refs
-            def delete_back_refs(ref_name, ref_uuid, back_ref_name,
-                                 back_ref_uuid):
-                _ref_name = ref_name
-                if (_ref_name not in self._resource_collection or
-                        ref_uuid not in self._resource_collection[_ref_name]):
-                    # TODO(anbu): Implement if needed
-                    print(" -- Unable to locate %s resource with uuid %s" % (
-                        _ref_name, ref_uuid))
-                else:
-                    ref_obj = self._resource_collection[_ref_name][ref_uuid]
-                    back_ref = getattr(ref_obj, back_ref_name, [])
-                    for index, value in enumerate(back_ref) or []:
-                        if value['uuid'] == back_ref_uuid:
-                            back_ref.pop(index)
-                            break
-
             for ref in obj.ref_fields:
                 back_ref_name = (self._resource_type.replace("-", "_") +
                                  "_back_refs")
@@ -271,8 +276,9 @@ class MockVnc(object):
                     continue
                 ref_value = getattr(obj, ref)
                 for r in ref_value:
-                    delete_back_refs(ref_name, r['uuid'],  back_ref_name,
-                                     obj.uuid)
+                    self.delete_back_refs(ref_name, r['uuid'],
+                                          back_ref_name,
+                                          obj.uuid)
 
     def __getattr__(self, method):
         (resource, action) = self._break_method(method)

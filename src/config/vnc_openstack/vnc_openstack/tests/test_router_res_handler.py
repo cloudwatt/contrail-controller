@@ -273,7 +273,7 @@ class TestLogicalRouterHandler(test_common.TestBase):
                            'tenant_id': context['tenant_id'],
                            'port_id': port_id}
         self.assertEqual(expected_output, returned_output)
-        
+
         iface_port_info = vmi_handler.VMInterfaceHandler(
             self._test_vnc_lib).resource_get(port_id)
         self.assertEqual('network:router_interface',
@@ -281,7 +281,6 @@ class TestLogicalRouterHandler(test_common.TestBase):
         self.assertEqual(router_id, iface_port_info['device_id'])
 
         # test remove_router_interface
-        
         returned_output = rtr_iface_handler.remove_router_interface(
             router_id, port_id=port_id)
         self.assertEqual(returned_output, expected_output)
@@ -289,10 +288,8 @@ class TestLogicalRouterHandler(test_common.TestBase):
         # get the port list and see if port is deleted or not
         port_list = vmi_handler.VMInterfaceHandler(
             self._test_vnc_lib).resource_list(context)
-        self.assertEqual(1, len(port_list))
-        self.assertEqual('', iface_port_info['device_owner'])
+        self.assertEqual(0, len(port_list))
         # removing again should raise HTTPError
         #self.assertRaises(bottle.HTTPError,
         #                  rtr_iface_handler.remove_router_interface,
         #                  router_id, subnet_id=subnet_id)
-        
