@@ -268,25 +268,6 @@ class MockVnc(object):
             self._resource.pop(':'.join(obj.get_fq_name()), None)
 
             # remove all the back refs
-<<<<<<< HEAD
-            def delete_back_refs(ref_name, ref_uuid, back_ref_name,
-                                 back_ref_uuid):
-                _ref_name = ref_name
-                if (_ref_name not in self._resource_collection or
-                        ref_uuid not in self._resource_collection[_ref_name]):
-                    # TODO(anbu): Implement if needed
-                    print(" -- Unable to locate %s resource with uuid %s" % (
-                        _ref_name, ref_uuid))
-                else:
-                    ref_obj = self._resource_collection[_ref_name][ref_uuid]
-                    back_ref = getattr(ref_obj, back_ref_name, [])
-                    for index, value in enumerate(back_ref) or []:
-                        if value['uuid'] == back_ref_uuid:
-                            back_ref.pop(index)
-                            break
-
-=======
->>>>>>> ce21800... Fixed the back ref cleaning in vnc_mock on update calls
             for ref in obj.ref_fields:
                 back_ref_name = (self._resource_type.replace("-", "_") +
                                  "_back_refs")
