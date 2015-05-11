@@ -193,6 +193,7 @@ class TestVmiHandlers(test_common.TestBase):
                                            subnet_uuid=subnet_uuid)
         self._port_count_check(1)
 
+        vm_uuid = str(uuid.uuid4())
         # update certain params and check
         entries = [{'input': {
             'port_q': {
@@ -200,7 +201,7 @@ class TestVmiHandlers(test_common.TestBase):
                 'admin_state_up': False,
                 'security_groups': [],
                 'device_owner': 'vm',
-                'device_id': 'test-instance-1',
+                'device_id': vm_uuid,
                 'fixed_ips': [{'subnet_id': subnet_uuid,
                                'ip_address': '192.168.1.10'}],
                 'allowed_address_pairs': [{'ip_address': "10.0.0.0/24"},
@@ -211,8 +212,8 @@ class TestVmiHandlers(test_common.TestBase):
             'output': {'name': 'test-port-updated',
                        'admin_state_up': False,
                        'id': port_id_1,
-                       #'device_id': 'test-instance-1',
-                       'device_owner': 'vm',
+                       'device_id': vm_uuid,
+                       'device_owner': '',
                        'security_groups': [self._generated()],
                        'extra_dhcp_opts': [{'opt_value': '8.8.8.8',
                                             'opt_name': '4'}],
@@ -227,11 +228,13 @@ class TestVmiHandlers(test_common.TestBase):
             parent_obj=self.proj_obj,
             security_group_entries=sg_rules)
         self._test_vnc_lib.security_group_create(sg_obj)
+        vm_uuid_2 = str(uuid.uuid4())
         entries[0]['input']['port_q']['security_groups'] = [sg_obj.uuid]
-        entries[0]['input']['port_q']['device_id'] = 'test-instance-2'
+        entries[0]['input']['port_q']['device_id'] = vm_uuid_2
         entries[0]['input']['port_q'][
             'fixed_ips'][0]['ip_address'] = '192.168.1.11'
         entries[0]['output']['security_groups'] = [sg_obj.uuid]
+        entries[0]['output']['device_id'] = vm_uuid_2
         entries[0]['output']['fixed_ips'] = [{'ip_address': '192.168.1.11'}]
 
         self._test_check_update(entries)

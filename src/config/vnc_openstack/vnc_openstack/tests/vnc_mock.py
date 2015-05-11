@@ -73,7 +73,6 @@ class MockVnc(object):
                                 'to': back_ref_obj.get_fq_name()}
                     back_ref_name = ("%s_back_refs"
                                      % back_ref_name.replace("-", "_"))
-                    print " -- Updating back refs %s for %s resource" % (back_ref_name, _ref_name)
                     if hasattr(ref_obj, back_ref_name) and getattr(ref_obj, back_ref_name):
                         getattr(ref_obj, back_ref_name).append(back_ref)
                     else:
