@@ -354,7 +354,23 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
                 ("global-system-config-global-qos-config")
                 ("qos-config-global-system-config"))
         ("provider-attachment", std::set<std::string>())
-        ("service-instance", list_of("service-instance-service-template"))
+        ("virtual-ip",
+         list_of("virtual-ip-virtual-machine-interface"))
+        ("loadbalancer",
+         list_of("loadbalancer-service-instance")
+                ("loadbalancer-listener-loadbalancer"))
+        ("loadbalancer-listener",
+         list_of("loadbalancer-listener-loadbalancer-pool"))
+        ("loadbalancer-pool",
+         list_of("loadbalancer-pool-loadbalancer-healthmonitor")
+                ("loadbalancer-pool-loadbalancer-member")
+                ("virtual-ip-loadbalancer-pool"))
+        ("loadbalancer-member", std::set<std::string>())
+        ("loadbalancer-healthmonitor", std::set<std::string>())
+        ("service-instance",
+         list_of("service-instance-service-template")
+                ("loadbalancer-pool-service-instance")
+                ("loadbalancer-service-instance"))
         ("global-vrouter-config", std::set<std::string>())
         ("virtual-machine-interface",
          list_of("virtual-machine-virtual-machine-interface")
@@ -371,7 +387,8 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
                 ("service-port-health-check")
                 ("bgpaas-virtual-machine-interface")
                 ("virtual-machine-interface-qos-config")
-                ("virtual-machine-interface-bgp-router"))
+                ("virtual-machine-interface-bgp-router")
+                ("virtual-machine-interface-loadbalancer"))
         ("security-group", list_of("security-group-access-control-list"))
         ("physical-router",
          list_of("physical-router-physical-interface")
