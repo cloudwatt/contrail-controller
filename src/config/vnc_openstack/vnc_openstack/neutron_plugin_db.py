@@ -1143,6 +1143,10 @@ class DBInterface(object):
         if oper == CREATE:
             project_id = str(uuid.UUID(sg_q['tenant_id']))
             project_obj = self._project_read(proj_id=project_id)
+            # If description is not specified by the user, assign empty string
+            if not sg_q.get('description'):
+                sg_q['description'] = " "
+
             id_perms = IdPermsType(enable=True,
                                    description=sg_q.get('description'))
             sg_vnc = SecurityGroup(name=sg_q['name'],
