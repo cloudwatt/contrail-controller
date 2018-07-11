@@ -1441,8 +1441,8 @@ class VncCassandraClient(object):
                         self._read_child(result, obj_uuid, child_type,
                                          child_uuid, child_tstamp)
                     except (NoIdError, KeyError) as e:
-                        self._logger('%s' %(utils.detailed_traceback()),
-                             level=SandeshLevel.SYS_ERR)
+                        self._logger('Unknown ID: %s (type: %s)' %(child_uuid, child_type),
+                             level=SandeshLevel.SYS_WARN)
                         continue
                     continue
 
@@ -1455,8 +1455,8 @@ class VncCassandraClient(object):
                         self._read_ref(result, obj_uuid, ref_type, ref_uuid,
                                    obj_cols[col_name][0])
                     except (NoIdError, KeyError) as e:
-                        self._logger('%s' %(utils.detailed_traceback()),
-                             level=SandeshLevel.SYS_ERR)
+                        self._logger('Unknown ID: %s (type: %s)' %(ref_uuid, ref_type),
+                             level=SandeshLevel.SYS_WARN)
                         continue
                     continue
 
@@ -1472,8 +1472,8 @@ class VncCassandraClient(object):
                         self._read_back_ref(result, obj_uuid, back_ref_type,
                                             back_ref_uuid, obj_cols[col_name][0])
                     except (NoIdError, KeyError) as e:
-                        self._logger('%s' %(utils.detailed_traceback()),
-                             level=SandeshLevel.SYS_ERR)
+                        self._logger('Unknown ID: %s (type: %s)' %(back_ref_uuid, back_ref_type),
+                             level=SandeshLevel.SYS_WARN)
                         continue
                     continue
 
