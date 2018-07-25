@@ -96,6 +96,17 @@ def _access_control_list_update(acl_obj, name, obj, entries):
     return acl_obj
 # end _access_control_list_update
 
+def init_duration_logs(init_func):
+    def decorator(cls):
+        start_time = time.time()
+        output = init_func(cls)
+        elapsed_time = time.time() - start_time
+        cls._logger.info("Initialized %s in %.3f" %
+			(cls.obj_type, elapsed_time))
+        return output
+    # end decorator
+    return decorator
+# end init_duration_logs
 
 class DBBaseST(DBBase):
     obj_type = __name__
@@ -115,6 +126,7 @@ class DBBaseST(DBBase):
         pass
 
     @classmethod
+    @init_duration_logs
     def reinit(cls):
         for obj in cls.list_vnc_obj():
             try:
@@ -164,6 +176,7 @@ class GlobalSystemConfigST(DBBaseST):
     prop_fields = ['autonomous_system', 'ibgp_auto_mesh', 'bgpaas_parameters']
 
     @classmethod
+    @init_duration_logs
     def reinit(cls):
         for gsc in cls.list_vnc_obj():
             try:
@@ -1395,6 +1408,7 @@ class RouteTargetST(DBBaseST):
     obj_type = 'route_target'
 
     @classmethod
+    @init_duration_logs
     def reinit(cls):
         for obj in cls.list_vnc_obj():
             try:
