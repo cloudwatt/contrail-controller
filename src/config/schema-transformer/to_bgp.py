@@ -205,6 +205,7 @@ class SchemaTransformer(object):
 
     # Clean up stale objects
     def reinit(self):
+        reinit_start_time = time.time()
         GlobalSystemConfigST.reinit()
         BgpRouterST.reinit()
         vn_list = list(VirtualNetworkST.list_vnc_obj())
@@ -212,6 +213,7 @@ class SchemaTransformer(object):
         ri_dict = {}
         service_ri_dict = {}
         ri_deleted = {}
+        start_time = time.time()
         for ri in DBBaseST.list_vnc_obj('routing_instance'):
             delete = False
             if ri.parent_uuid not in vn_id_list:
@@ -246,7 +248,11 @@ class SchemaTransformer(object):
                         ri.get_fq_name_str(), str(e)))
             self.timer_obj.timed_yield()
         # end for ri
+        elapsed_time = time.time() - start_time
+        self.logger.info("Cleaned %s in %.3f" %
+			(RoutingInstanceST.obj_type, elapsed_time))
 
+        start_time = time.time()
         sg_list = list(SecurityGroupST.list_vnc_obj())
         sg_id_list = [sg.uuid for sg in sg_list]
         sg_acl_dict = {}
@@ -281,7 +287,6 @@ class SchemaTransformer(object):
                             acl.uuid, str(e)))
             self.timer_obj.timed_yield()
         # end for acl
-
         gevent.sleep(0.001)
         for sg in sg_list:
             try:
@@ -290,7 +295,6 @@ class SchemaTransformer(object):
             except Exception as e:
                 self.logger.error("Error in reinit security-group %s: %s" % (
                     sg.get_fq_name_str(), str(e)))
-
         # update sg rules after all SG objects are initialized to avoid
         # rewriting of ACLs multiple times
         for sg in SecurityGroupST.values():
@@ -300,9 +304,14 @@ class SchemaTransformer(object):
             except Exception as e:
                 self.logger.error("Error in updating SG policies %s: %s" % (
                     sg.name, str(e)))
+        elapsed_time = time.time() - start_time
+        self.logger.info("Initialized %s in %.3f" %
+			(SecurityGroupST.obj_type, elapsed_time))
 
         gevent.sleep(0.001)
         RouteTargetST.reinit()
+
+        start_time = time.time()
         for vn in vn_list:
             if vn.uuid in ri_deleted:
                 vn_ri_list = vn.get_routing_instances() or []
@@ -314,19 +323,33 @@ class SchemaTransformer(object):
             except Exception as e:
                 self.logger.error("Error in reinit virtual network %s: %s" % (
                     vn.get_fq_name_str(), str(e)))
+        elapsed_time = time.time() - start_time
+        self.logger.info("Initialized %s in %.3f" %
+			(VirtualNetworkST.obj_type, elapsed_time))
+
+        start_time = time.time()
         for ri_name, ri_obj in ri_dict.items():
             try:
                 RoutingInstanceST.locate(ri_name, ri_obj)
             except Exception as e:
                 self.logger.error("Error in reinit routing instance %s: %s" % (
                     ri_name, str(e)))
+        elapsed_time = time.time() - start_time
+        self.logger.info("Initialized primary %s in %.3f" %
+			(RoutingInstanceST.obj_type, elapsed_time))
+
         # Initialize service instance RI's after Primary RI's
+        start_time = time.time()
         for si_ri_name, si_ri_obj in service_ri_dict.items():
             try:
                 RoutingInstanceST.locate(si_ri_name, si_ri_obj)
             except Exception as e:
                 self.logger.error("Error in reinit routing instance %s: %s" % (
                     si_ri_name, str(e)))
+
+        elapsed_time = time.time() - start_time
+        self.logger.info("Initialized SI %s in %.3f" %
+			(RoutingInstanceST.obj_type, elapsed_time))
 
         NetworkPolicyST.reinit()
         gevent.sleep(0.001)
@@ -340,6 +363,8 @@ class SchemaTransformer(object):
         AliasIpST.reinit()
 
         gevent.sleep(0.001)
+
+        start_time = time.time()
         for si in ServiceInstanceST.list_vnc_obj():
             try:
                 si_st = ServiceInstanceST.locate(si.get_fq_name_str(), si)
@@ -356,6 +381,9 @@ class SchemaTransformer(object):
             except Exception as e:
                 self.logger.error("Error in reinit service instance %s: %s" % (
                     si.get_fq_name_str(), str(e)))
+        elapsed_time = time.time() - start_time
+        self.logger.info("Initialized %s in %.3f" %
+			(ServiceInstanceST.obj_type, elapsed_time))
 
         gevent.sleep(0.001)
         RoutingPolicyST.reinit()
@@ -385,7 +413,13 @@ class SchemaTransformer(object):
                 except Exception as e:
                     self.logger.error("Error in reinit evaluate %s %s: %s" % (
                         cls.obj_type, obj.name, str(e)))
+
+        start_time = time.time()
         self.process_stale_objects()
+        elapsed_time = time.time() - start_time
+        self.logger.info("Processed stale objects in %.3f" % elapsed_time)
+        elapsed_time = time.time() - reinit_start_time
+        self.logger.info("Reinit in %.3f" % elapsed_time)
     # end reinit
 
     def cleanup(self):
