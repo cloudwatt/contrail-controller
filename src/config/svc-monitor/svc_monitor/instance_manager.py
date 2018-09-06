@@ -407,13 +407,13 @@ class InstanceManager(object):
                 except NoIdError:
                     pass
 
-                iip_obj = self._vnc_lib.instance_ip_read(id=iip['uuid'])
-                if not iip_obj.get_virtual_machine_interface_refs():
-                    try:
+                try:
+                    iip_obj = self._vnc_lib.instance_ip_read(id=iip['uuid'])
+                    if not iip_obj.get_virtual_machine_interface_refs():
                         self._vnc_lib.instance_ip_delete(id=iip['uuid'])
                         InstanceIpSM.delete(iip['uuid'])
-                    except NoIdError:
-                        pass
+                except NoIdError:
+                    pass
 
             for fip in vmi_obj.get_floating_ip_back_refs() or []:
                 try:
