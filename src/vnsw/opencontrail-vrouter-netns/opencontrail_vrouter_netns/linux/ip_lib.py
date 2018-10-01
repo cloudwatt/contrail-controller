@@ -57,9 +57,6 @@ class SubProcessBase(object):
             return self._execute(options, command, args)
 
     def _as_root(self, options, command, args, use_root_namespace=False):
-        if not self.root_helper:
-            raise NameError("Sudo privilege is required to run this command.")
-
         namespace = self.namespace if not use_root_namespace else None
 
         return self._execute(options,
@@ -493,8 +490,6 @@ class IpNetnsCommand(IpCommandBase):
         self._as_root('delete', name, use_root_namespace=True)
 
     def execute(self, cmds, addl_env={}, check_exit_code=True):
-        if not self._parent.root_helper:
-            raise NameError("Sudo privilege is required to run this command.")
         ns_params = []
         if self._parent.namespace:
             ns_params = ['ip', 'netns', 'exec', self._parent.namespace]
