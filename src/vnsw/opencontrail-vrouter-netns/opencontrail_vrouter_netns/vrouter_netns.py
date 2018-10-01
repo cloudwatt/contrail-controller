@@ -61,7 +61,7 @@ class NetnsManager(object):
     LBAAS_DIR = "/var/lib/contrail/loadbalancer"
 
     def __init__(self, vm_uuid, nic_left, nic_right, other_nics=None,
-                 root_helper='sudo', cfg_file=None, update=False,
+                 root_helper=None, cfg_file=None, update=False,
                  pool_id=None, gw_ip=None, namespace_name=None,
                  loadbalancer_id=None):
         self.vm_uuid = vm_uuid
@@ -300,7 +300,7 @@ class VRouterNetns(object):
 
         conf_parser.add_argument("-c", "--root_helper",
                                  help="Helper to execute root commands. "
-                                 "Default: 'sudo'", default="sudo")
+                                 "Default: None", default=None)
         args, remaining_argv = conf_parser.parse_known_args(args_str.split())
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
