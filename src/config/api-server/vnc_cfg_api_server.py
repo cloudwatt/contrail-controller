@@ -4014,7 +4014,7 @@ def main(args_str=None, server=None):
 # end main
 
 def server_main(args_str=None):
-    vnc_cgitb.enable(format='text')
+    vnc_cgitb.enable(format='text', logdir="/var/log/contrail/api_exceptions")
 
     main(args_str, VncApiServer(args_str))
 #server_main
