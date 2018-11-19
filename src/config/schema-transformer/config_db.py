@@ -2462,7 +2462,7 @@ class RoutingInstanceST(DBBaseST):
         try:
             # The creation/deletion of the default virtual network routing
             # instance is handled by the vnc api now
-            if not self.is_default:
+            if not self.is_default or vn_obj is None:
                 DBBaseST._vnc_lib.routing_instance_delete(id=self.obj.uuid)
 
         except NoIdError:
