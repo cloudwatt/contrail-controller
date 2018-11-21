@@ -991,8 +991,14 @@ class VncDbClient(object):
                     if not obj_dict.get('access_control_list_hash'):
                         rules = obj_dict.get('access_control_list_entries')
                         if rules:
+                            for rule in rules.get("acl_rule", []):
+                                for addr in ("src_address", "dst_address"):
+                                    sg = rule["match_condition"][addr]["security_group"]
+                                    if sg is not None:
+                                        rule["match_condition"][addr]["security_group"] = str(sg)
                             rules_obj = AclEntriesType(params_dict=rules)
                             obj_dict['access_control_list_hash'] = hash(rules_obj)
+                            obj_dict['access_control_list_entries'] = rules
                             self._cassandra_db.object_update('access_control_list',
                                                               obj_uuid, obj_dict)
 
