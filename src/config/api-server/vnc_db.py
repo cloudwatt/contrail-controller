@@ -986,6 +986,13 @@ class VncDbClient(object):
                             obj_dict['access_control_list_entries'] = rules
                             self._cassandra_db.object_update('access_control_list',
                                                               obj_uuid, obj_dict)
+                elif obj_type == 'routing_instance':
+                    if obj_dict.get('routing_instance_is_default') is not True:
+                        continue
+                    if obj_dict.get('static_route_entries') is None:
+                        obj_dict['static_route_entries'] = {'route': []}
+                        self._cassandra_db.object_update('routing_instance',
+                                                         obj_uuid, obj_dict)
 
                 # create new perms if upgrading
                 perms2 = self._cassandra_db.update_perms2(obj_uuid, obj_dict)
