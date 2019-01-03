@@ -1992,7 +1992,7 @@ void FlowEntry::ResyncFlow() {
     // If this is forward flow, update the SG action for reflexive entry
     FlowEntry *rflow = (is_flags_set(FlowEntry::ReverseFlow) == false) ?
         reverse_flow_entry() : NULL;
-    if (rflow) {
+    if (!(is_flags_set(FlowEntry::TcpAckFlow)) && rflow) {
         // Update action for reverse flow
         rflow->UpdateReflexiveAction();
         rflow->ActionRecompute();
