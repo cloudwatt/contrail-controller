@@ -1040,6 +1040,10 @@ class VncDbClient(object):
                 obj_ids = {'type': obj_type, 'uuid': obj_uuid, 'imid': my_imid,
                            'parent_imid': parent_imid}
                 (ok, result) = self._ifmap_db.object_create(obj_ids, obj_dict)
+            except NoIdError as e:
+                self.config_log('%s(%s), dbe_resync: %s' % (
+                    obj_uuid, obj_type, e), level=SandeshLevel.SYS_ERR)
+                continue
             except Exception as e:
                 tb = cfgm_common.utils.detailed_traceback()
                 self.config_log(tb, level=SandeshLevel.SYS_ERR)
