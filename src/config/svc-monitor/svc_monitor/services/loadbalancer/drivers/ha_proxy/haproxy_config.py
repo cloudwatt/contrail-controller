@@ -61,7 +61,13 @@ def get_config_v1(pool):
     custom_attrs = get_custom_attributes_v1(pool)
     conf = set_globals(sock_path, custom_attr_dict, custom_attrs) + '\n\n'
     conf += set_defaults(custom_attr_dict, custom_attrs) + '\n\n'
-    conf += set_v1_frontend_backend(pool, custom_attr_dict, custom_attrs)
+    vip = VirtualIpSM.get(pool.virtual_ip)
+    if not vip or not vip.params['admin_state']:
+        return conf
+    conf += set_v1_frontend_backend(vip, pool, custom_attr_dict, custom_attrs)
+    if vip.params['protocol_port'] in [443, 80]:
+        conf += '\n'
+        conf += set_v1_frontend_backend(vip, pool, custom_attr_dict, custom_attrs, multi_port_binding=True)
     return conf
 
 
@@ -177,26 +183,32 @@ def set_defaults(custom_attr_dict, custom_attrs):
     res = "\n\t".join(conf)
     return res
 
-def set_v1_frontend_backend(pool, custom_attr_dict, custom_attrs):
+def set_v1_frontend_backend(vip, pool, custom_attr_dict, custom_attrs, multi_port_binding=False):
     conf = []
-    vip = VirtualIpSM.get(pool.virtual_ip)
-    if not vip or not vip.params['admin_state']:
-        return "\n"
 
     ssl = ''
-    if vip.params['protocol'] == PROTO_HTTPS:
-        ssl = 'ssl crt haproxy_ssl_cert_path no-sslv3'
+    # FIXME: doesn't seem to work
+    # if vip.params['protocol'] == PROTO_HTTPS:
+    #    ssl = 'ssl crt haproxy_ssl_cert_path no-sslv3'
+
+    if multi_port_binding is True:
+        name = "%s-tcp-multi-port-binding" % vip.uuid
+        port = 80 if vip.params['protocol_port'] == 443 else 443
+        backend_name = "%s-tcp-multi-port-binding" % pool.uuid
+    else:
+        name = vip.uuid
+        port = vip.params['protocol_port']
+        backend_name = pool.uuid
 
     lconf = [
-        'frontend %s' % vip.uuid,
+        'frontend %s' % name,
         'option tcplog',
-        'bind %s:%s %s' % (vip.params['address'],
-            vip.params['protocol_port'], ssl),
+        'bind %s:%s %s' % (vip.params['address'], port, ssl),
         'mode %s' % PROTO_MAP_V1[vip.params['protocol']],
     ]
 
     if 'connection_limit' in vip.params and vip.params['connection_limit'] > 0:
-         lconf.append('maxconn %d' % vip.params['connection_limit'])
+        lconf.append('maxconn %d' % vip.params['connection_limit'])
 
     if vip.params['protocol'] == PROTO_HTTP or \
             vip.params['protocol'] == PROTO_HTTPS:
@@ -205,22 +217,28 @@ def set_v1_frontend_backend(pool, custom_attr_dict, custom_attrs):
     if pool and pool.params['admin_state']:
         frontend_custom_attrs = get_valid_attrs(custom_attr_dict, 'frontend',
                                                 custom_attrs[pool.uuid])
-        lconf.append('default_backend %s' % pool.uuid)
+        lconf.append('default_backend %s' % backend_name)
         # Adding custom_attributes config
         for key, value in frontend_custom_attrs.iteritems():
             cmd = custom_attr_dict['frontend'][key]['cmd']
             lconf.append(cmd % value)
         res = "\n\t".join(lconf) + '\n\n'
-        res += set_backend_v1(pool, custom_attr_dict, custom_attrs)
+        res += set_backend_v1(vip, pool, custom_attr_dict, custom_attrs, multi_port_binding=multi_port_binding)
         conf.append(res)
 
     return "\n".join(conf)
 
-def set_backend_v1(pool, custom_attr_dict, custom_attrs):
+def set_backend_v1(vip, pool, custom_attr_dict, custom_attrs, multi_port_binding=False):
     backend_custom_attrs = get_valid_attrs(custom_attr_dict, 'backend',
                                            custom_attrs[pool.uuid])
+
+    if multi_port_binding:
+        name = "%s-tcp-multi-port-binding" % pool.uuid
+    else:
+        name = pool.uuid
+
     conf = [
-        'backend %s' % pool.uuid,
+        'backend %s' % name,
         'mode %s' % PROTO_MAP_V1[pool.params['protocol']],
         'balance %s' % LB_METHOD_MAP[pool.params['loadbalancer_method']]
     ]
@@ -240,10 +258,14 @@ def set_backend_v1(pool, custom_attr_dict, custom_attrs):
 
     for member_id in pool.members:
         member = LoadbalancerMemberSM.get(member_id)
+        if multi_port_binding:
+            port = 80 if vip.params['protocol_port'] == 443 else 443
+        else:
+            port = member.params['protocol_port']
         if not member or not member.params['admin_state']:
             continue
         server = (('server %s %s:%s weight %s') % (member.uuid,
-                  member.params['address'], member.params['protocol_port'],
+                  member.params['address'], port,
                   member.params['weight'])) + server_suffix
         conf.append(server)
 
