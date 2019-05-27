@@ -1666,7 +1666,7 @@ class DBInterface(object):
 
         subnet_vnc = IpamSubnetType(subnet=SubnetType(pfx, pfx_len),
                                     default_gateway=default_gw,
-                                    dns_server_address='0.0.0.0' if self._strict_compliance else None,
+                                    dns_server_address='0.0.0.0',
                                     enable_dhcp=dhcp_config,
                                     dns_nameservers=None,
                                     allocation_pools=alloc_pools,
