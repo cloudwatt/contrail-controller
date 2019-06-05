@@ -35,15 +35,17 @@ def daemon_start():
     defaults = {
         'username': None,
         'password': None,
+        'tenant': None,
         'api-server': '127.0.0.1',
         'api-port': 8082,
         'project': 'default-domain:default-project',
         'network': 'default-network',
-        'monitor' : False,
+        'monitor': False,
     }
     parser.set_defaults(**defaults)
     parser.add_argument("-U", "--username", help="Username of the tenant")
     parser.add_argument("-P", "--password", help="Password for the user")
+    parser.add_argument("-T", "--tenant", help="Tenant for the user")
     parser.add_argument("-s", "--api-server", help="API server address")
     parser.add_argument("-p", "--api-port", type=int, help="API server port")
     parser.add_argument("--project", help="OpenStack project name")
@@ -61,12 +63,11 @@ def daemon_start():
     arguments = parser.parse_args(sys.argv[1:])
 
     manager = LxcManager()
-    project_name = get_project_name(arguments.project, arguments.network)
     provisioner = Provisioner(username=arguments.username,
                               password=arguments.password,
                               api_server=arguments.api_server,
                               api_port=arguments.api_port,
-                              project=project_name)
+                              project=arguments.tenant)
     vrouter_name = socket.gethostname()
     instance_name = '%s-%s' % (vrouter_name, arguments.daemon)
     vm = provisioner.virtual_machine_locate(vrouter_name, instance_name)
